@@ -91,7 +91,7 @@ func NewServer(config common.Config) error {
 		session.WithCredentials(config.Account.Akid, config.Account.Secret, ""),
 		session.WithRegion(config.Account.Region),
 		session.WithExternalID(config.Account.ExternalID),
-		session.WithExtermalRoleName(config.Account.Role),
+		session.WithExternalRoleName(config.Account.Role),
 	)
 
 	publicURLs := map[string]string{
