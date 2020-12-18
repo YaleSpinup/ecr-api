@@ -20,8 +20,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/YaleSpinup/ecr-api/common"
 )
 
 func TestPingHandler(t *testing.T) {
@@ -54,11 +52,10 @@ func TestVersionHandler(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 	s := server{
-		version: common.Version{
-			Version:           "0.1.0",
-			VersionPrerelease: "",
-			GitHash:           "No Git Commit Provided",
-			BuildStamp:        "No BuildStamp Provided",
+		version: &apiVersion{
+			Version:    "0.1.0",
+			GitHash:    "No Git Commit Provided",
+			BuildStamp: "No BuildStamp Provided",
 		},
 	}
 	handler := http.HandlerFunc(s.VersionHandler)

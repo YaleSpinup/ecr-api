@@ -18,6 +18,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math/rand"
 	"net/http"
@@ -25,6 +26,8 @@ import (
 	"time"
 
 	"github.com/YaleSpinup/ecr-api/common"
+	"github.com/YaleSpinup/ecr-api/iam"
+	"github.com/YaleSpinup/ecr-api/session"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 
@@ -35,11 +38,23 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// apiVersion is the API version
+type apiVersion struct {
+	// The version of the API
+	Version string `json:"version"`
+	// The git hash of the API
+	GitHash string `json:"githash"`
+	// The build timestamp of the API
+	BuildStamp string `json:"buildstamp"`
+}
+
 type server struct {
-	router  *mux.Router
-	version common.Version
-	context context.Context
-	org string
+	router    *mux.Router
+	version   *apiVersion
+	context   context.Context
+	session   session.Session
+	orgPolicy string
+	org       string
 }
 
 // NewServer creates a new server and starts it
@@ -53,17 +68,31 @@ func NewServer(config common.Config) error {
 	}
 
 	s := server{
-		// ec2Services:         make(map[string]ec2.EC2),
 		router:  mux.NewRouter(),
-		version: config.Version,
 		context: ctx,
-		org: config.Org,
+		org:     config.Org,
 	}
 
-	// Create shared sessions
-	for name, c := range config.Accounts {
-		log.Debugf("Creating new ecr-api service for account '%s' with key '%s' in region '%s' (org: %s)", name, c.Akid, c.Region, s.org)
+	s.version = &apiVersion{
+		Version:    config.Version.Version,
+		GitHash:    config.Version.GitHash,
+		BuildStamp: config.Version.BuildStamp,
 	}
+
+	orgPolicy, err := orgTagAccessPolicy(config.Org)
+	if err != nil {
+		return err
+	}
+	s.orgPolicy = orgPolicy
+
+	// Create a new session used for authentication and assuming cross account roles
+	log.Debugf("Creating new session with key '%s' in region '%s'", config.Account.Akid, config.Account.Region)
+	s.session = session.New(
+		session.WithCredentials(config.Account.Akid, config.Account.Secret, ""),
+		session.WithRegion(config.Account.Region),
+		session.WithExternalID(config.Account.ExternalID),
+		session.WithExtermalRoleName(config.Account.Role),
+	)
 
 	publicURLs := map[string]string{
 		"/v1/ecr/ping":    "public",
@@ -165,4 +194,32 @@ func retry(attempts int, sleep time.Duration, f func() error) error {
 	}
 
 	return nil
+}
+
+// orgTagAccessPolicy generates the org tag conditional policy
+func orgTagAccessPolicy(org string) (string, error) {
+	log.Debugf("generating org policy document")
+
+	policy := iam.PolicyDocument{
+		Version: "2012-10-17",
+		Statement: []iam.StatementEntry{
+			{
+				Effect:   "Allow",
+				Action:   []string{"*"},
+				Resource: "*",
+				Condition: iam.Condition{
+					"StringEquals": iam.ConditionStatement{
+						"aws:ResourceTag/spinup:org": org,
+					},
+				},
+			},
+		},
+	}
+
+	j, err := json.Marshal(policy)
+	if err != nil {
+		return "", err
+	}
+
+	return string(j), nil
 }
