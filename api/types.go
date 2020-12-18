@@ -108,7 +108,8 @@ func normalizeTags(org, group, name string, tags []*Tag) []*Tag {
 		&Tag{
 			Key:   "spinup:org",
 			Value: org,
-		}, &Tag{
+		},
+		&Tag{
 			Key:   "spinup:spaceid",
 			Value: group,
 		})
