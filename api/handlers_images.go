@@ -32,7 +32,7 @@ func (s *server) RepositoriesImageListHandler(w http.ResponseWriter, r *http.Req
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
-		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
 		return
 	}
 

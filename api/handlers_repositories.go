@@ -40,7 +40,7 @@ func (s *server) RepositoriesCreateHandler(w http.ResponseWriter, r *http.Reques
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
-		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, err))
 		return
 	}
 
@@ -92,7 +92,7 @@ func (s *server) RepositoriesListHandler(w http.ResponseWriter, r *http.Request)
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
-		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
 		return
 	}
 
@@ -179,7 +179,7 @@ func (s *server) RepositoriesShowHandler(w http.ResponseWriter, r *http.Request)
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
-		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
 		return
 	}
 
@@ -236,7 +236,7 @@ func (s *server) RepositoriesUpdateHandler(w http.ResponseWriter, r *http.Reques
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
-		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
 	}
 
 	orch := &ecrOrchestrator{
@@ -282,7 +282,7 @@ func (s *server) RepositoriesDeleteHandler(w http.ResponseWriter, r *http.Reques
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
-		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
 	}
 
 	orch := &ecrOrchestrator{

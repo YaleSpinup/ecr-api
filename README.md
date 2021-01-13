@@ -120,12 +120,13 @@ GET `/v1/ecr/{account}/repositories`
 
 GET `/v1/ecr/{account}/repositories/{group}`
 
-| Response Code                 | Definition                      |
-| ----------------------------- | --------------------------------|
-| **200 OK**                    | return the list of repositories |
-| **400 Bad Request**           | badly formed request            |
-| **404 Not Found**             | account not found               |
-| **500 Internal Server Error** | a server error occurred         |
+| Response Code                 | Definition                       |
+| ----------------------------- | ---------------------------------|
+| **200 OK**                    | return the list of repositories  |
+| **400 Bad Request**           | badly formed request             |
+| **403 Forbidden**             | bad token or fail to assume role |
+| **404 Not Found**             | account not found                |
+| **500 Internal Server Error** | a server error occurred          |
 
 #### Example list by group response
 
@@ -139,12 +140,13 @@ GET `/v1/ecr/{account}/repositories/{group}`
 
 GET `/v1/ecr/{account}/repositories/{group}/{id}`
 
-| Response Code                 | Definition                      |
-| ----------------------------- | --------------------------------|
-| **200 OK**                    | return details of a repository  |
-| **400 Bad Request**           | badly formed request            |
-| **404 Not Found**             | account or repository not found |
-| **500 Internal Server Error** | a server error occurred         |
+| Response Code                 | Definition                       |
+| ----------------------------- | ---------------------------------|
+| **200 OK**                    | return details of a repository   |
+| **400 Bad Request**           | badly formed request             |
+| **403 Forbidden**             | bad token or fail to assume role |
+| **404 Not Found**             | account or repository not found  |
+| **500 Internal Server Error** | a server error occurred          |
 
 #### Example show response
 
@@ -244,6 +246,7 @@ DELETE `/v1/ecr/{account}/repositories/{group}/{id}`
 | ----------------------------- | -----------------------------------------|
 | **200 Submitted**             | delete request is submitted              |
 | **400 Bad Request**           | badly formed request                     |
+| **403 Forbidden**             | bad token or fail to assume role         |
 | **404 Not Found**             | account or repository not found          |
 | **409 Conflict**              | repository is not in the available state |
 | **500 Internal Server Error** | a server error occurred                  |
@@ -252,12 +255,13 @@ DELETE `/v1/ecr/{account}/repositories/{group}/{id}`
 
 GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
 
-| Response Code                 | Definition                      |
-| ----------------------------- | --------------------------------|
-| **200 OK**                    | return details of a repository  |
-| **400 Bad Request**           | badly formed request            |
-| **404 Not Found**             | account or repository not found |
-| **500 Internal Server Error** | a server error occurred         |
+| Response Code                 | Definition                       |
+| ----------------------------- | ---------------------------------|
+| **200 OK**                    | return details of a repository   |
+| **400 Bad Request**           | badly formed request             |
+| **403 Forbidden**             | bad token or fail to assume role |
+| **404 Not Found**             | account or repository not found  |
+| **500 Internal Server Error** | a server error occurred          |
 
 #### Example response body
 
