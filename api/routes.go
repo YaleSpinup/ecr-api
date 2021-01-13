@@ -27,4 +27,14 @@ func (s *server) routes() {
 	api.HandleFunc("/ping", s.PingHandler).Methods(http.MethodGet)
 	api.HandleFunc("/version", s.VersionHandler).Methods(http.MethodGet)
 	api.Handle("/metrics", promhttp.Handler()).Methods(http.MethodGet)
+
+	// ECS Image Registry Repository handlers
+	api.HandleFunc("/{account}/repositories", s.RepositoriesListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/repositories/{group}", s.RepositoriesCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/repositories/{group}", s.RepositoriesListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/repositories/{group}/{name}", s.RepositoriesShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/repositories/{group}/{name}", s.RepositoriesUpdateHandler).Methods(http.MethodPut)
+	api.HandleFunc("/{account}/repositories/{group}/{name}", s.RepositoriesDeleteHandler).Methods(http.MethodDelete)
+
+	api.HandleFunc("/{account}/repositories/{group}/{name}/images", s.RepositoriesImageListHandler).Methods(http.MethodGet)
 }
