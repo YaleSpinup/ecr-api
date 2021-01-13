@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ListImages lists the images in a repostitory
 func (e *ECR) ListImages(ctx context.Context, repoName string) ([]*ecr.ImageIdentifier, error) {
 	if repoName == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -28,6 +29,7 @@ func (e *ECR) ListImages(ctx context.Context, repoName string) ([]*ecr.ImageIden
 	return out.ImageIds, nil
 }
 
+// GetImages gets details about images in a repository
 func (e *ECR) GetImages(ctx context.Context, repoName string, imageIds ...*ecr.ImageIdentifier) ([]*ecr.ImageDetail, error) {
 	if repoName == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)

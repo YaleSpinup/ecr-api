@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// CreateRepository creates an ECR repository
 func (e *ECR) CreateRepository(ctx context.Context, input *ecr.CreateRepositoryInput) (*ecr.Repository, error) {
 	if input == nil {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -27,6 +28,7 @@ func (e *ECR) CreateRepository(ctx context.Context, input *ecr.CreateRepositoryI
 	return out.Repository, nil
 }
 
+// ListRepositories lists all of the respositories in an account (up to 1000)
 func (e *ECR) ListRepositories(ctx context.Context) ([]string, error) {
 	log.Info("listing all repositories")
 
@@ -46,6 +48,7 @@ func (e *ECR) ListRepositories(ctx context.Context) ([]string, error) {
 	return repos, err
 }
 
+// GetRepositories gets a repository by name
 func (e *ECR) GetRepositories(ctx context.Context, repoName string) (*ecr.Repository, error) {
 	if repoName == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -78,6 +81,7 @@ func (e *ECR) GetRepositories(ctx context.Context, repoName string) (*ecr.Reposi
 	return out.Repositories[0], nil
 }
 
+// DeleteRepository deletes a repository by name
 func (e *ECR) DeleteRepository(ctx context.Context, repoName string) (*ecr.Repository, error) {
 	if repoName == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -97,6 +101,7 @@ func (e *ECR) DeleteRepository(ctx context.Context, repoName string) (*ecr.Repos
 	return out.Repository, nil
 }
 
+// GetRpositoryTags gets the tags for a repository by ARN
 func (e *ECR) GetRepositoryTags(ctx context.Context, repoArn string) ([]*ecr.Tag, error) {
 	if repoArn == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -117,6 +122,7 @@ func (e *ECR) GetRepositoryTags(ctx context.Context, repoArn string) ([]*ecr.Tag
 	return out.Tags, nil
 }
 
+// UpdateRepositoryTags updates the tags for the given repository
 func (e *ECR) UpdateRepositoryTags(ctx context.Context, repoArn string, tags []*ecr.Tag) error {
 	if repoArn == "" || tags == nil {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -137,14 +143,21 @@ func (e *ECR) UpdateRepositoryTags(ctx context.Context, repoArn string, tags []*
 	return nil
 }
 
-func (e *ECR) SetImageScanningConfiguration(ctx context.Context, input *ecr.PutImageScanningConfigurationInput) error {
-	if input == nil {
+// SetImageScanningConfiguration updates the image scanning configuration for a repository by name
+func (e *ECR) SetImageScanningConfiguration(ctx context.Context, repoName string, scanOnPush bool) error {
+	if repoName == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Infof("updating scanning configuration for repository %s", aws.StringValue(input.RepositoryName))
+	log.Infof("updating scanning configuration for repository %s", repoName)
 
-	out, err := e.Service.PutImageScanningConfigurationWithContext(ctx, input)
+	out, err := e.Service.PutImageScanningConfigurationWithContext(ctx, &ecr.PutImageScanningConfigurationInput{
+		ImageScanningConfiguration: &ecr.ImageScanningConfiguration{
+			ScanOnPush: aws.Bool(scanOnPush),
+		},
+		RepositoryName: aws.String(repoName),
+	})
+
 	if err != nil {
 		return ErrCode("failed to update repository", err)
 	}

@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// RepositoryCreateRequest is the payload for creating an ECR repository
 type RepositoryCreateRequest struct {
 	// Specify a custom KmsKeyId.  This will also change the encryption type from
 	// 'AES256' to 'KMS'.  By default, when no encryption configuration is set or
@@ -39,11 +40,13 @@ type RepositoryCreateRequest struct {
 	Tags []*Tag
 }
 
+// RepositoryUpdateRequest is the payload for updating an ECR repository
 type RepositoryUpdateRequest struct {
 	ScanOnPush string
 	Tags       []*Tag
 }
 
+// RepositoryResponse is the response payload for repository operations
 type RepositoryResponse struct {
 	CreatedAt          time.Time
 	EncryptionType     string
@@ -57,6 +60,7 @@ type RepositoryResponse struct {
 	Tags               []*Tag
 }
 
+// Tag is our AWS compatible tag struct that can be converted to specific tag types
 type Tag struct {
 	Key   string
 	Value string

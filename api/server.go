@@ -196,7 +196,7 @@ func retry(attempts int, sleep time.Duration, f func() error) error {
 	return nil
 }
 
-// orgTagAccessPolicy generates the org tag conditional policy
+// orgTagAccessPolicy generates the org tag conditional policy to be passed inline when assuming a role
 func orgTagAccessPolicy(org string) (string, error) {
 	log.Debugf("generating org policy document")
 

@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// repositoryCreate orchestrates the creation of a repository from the RepositoryCreateRequest
 func (e *ecrOrchestrator) repositoryCreate(ctx context.Context, account, group string, req *RepositoryCreateRequest) (*RepositoryResponse, error) {
 	repository := fmt.Sprintf("%s/%s", group, req.RepositoryName)
 
@@ -62,6 +63,7 @@ func (e *ecrOrchestrator) repositoryCreate(ctx context.Context, account, group s
 	return repositoryResponseFromECR(out, tags), nil
 }
 
+// repositoryDelete orchestrates the deletion of a repository
 func (e *ecrOrchestrator) repositoryDelete(ctx context.Context, account, group, name string) (*RepositoryResponse, error) {
 	repository := fmt.Sprintf("%s/%s", group, name)
 
@@ -87,6 +89,7 @@ func (e *ecrOrchestrator) repositoryDelete(ctx context.Context, account, group, 
 	return repositoryResponseFromECR(out, tags), nil
 }
 
+// repositoryUpdate orchestrates updating a repository
 func (e *ecrOrchestrator) repositoryUpdate(ctx context.Context, account, group, name string, req *RepositoryUpdateRequest) (*RepositoryResponse, error) {
 	repository := fmt.Sprintf("%s/%s", group, name)
 
@@ -105,12 +108,7 @@ func (e *ecrOrchestrator) repositoryUpdate(ctx context.Context, account, group, 
 			return nil, err
 		}
 
-		if err := e.client.SetImageScanningConfiguration(ctx, &ecr.PutImageScanningConfigurationInput{
-			ImageScanningConfiguration: &ecr.ImageScanningConfiguration{
-				ScanOnPush: aws.Bool(scanOnPush),
-			},
-			RepositoryName: aws.String(repository),
-		}); err != nil {
+		if err := e.client.SetImageScanningConfiguration(ctx, repository, scanOnPush); err != nil {
 			return nil, err
 		}
 	}
