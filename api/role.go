@@ -12,8 +12,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (s *server) assumeRole(ctx context.Context, id, role, inlinePolicy string, policyArns ...string) (*session.Session, error) {
-	log.Infof("assuming role %s", role)
+// assumeRole assumes the passed role arn.  if an externalId is set in the account to be accessed, it can be passed with the request.  inline
+// policy can be passed to limit the access for the session.  policy Arns can also be passed to limit access for the session.
+func (s *server) assumeRole(ctx context.Context, externalId, roleArn, inlinePolicy string, policyArns ...string) (*session.Session, error) {
+	log.Infof("assuming role %s", roleArn)
 
 	stsService := stsSvc.New(stsSvc.WithSession(s.session.Session))
 
@@ -21,7 +23,7 @@ func (s *server) assumeRole(ctx context.Context, id, role, inlinePolicy string, 
 
 	input := sts.AssumeRoleInput{
 		DurationSeconds: aws.Int64(900),
-		RoleArn:         aws.String(role),
+		RoleArn:         aws.String(roleArn),
 		RoleSessionName: aws.String(name),
 		Tags: []*sts.Tag{
 			{
@@ -31,15 +33,25 @@ func (s *server) assumeRole(ctx context.Context, id, role, inlinePolicy string, 
 		},
 	}
 
-	if id != "" {
-		input.SetExternalId(id)
+	if externalId != "" {
+		input.SetExternalId(externalId)
 	}
 
 	if inlinePolicy != "" {
 		input.SetPolicy(inlinePolicy)
 	}
 
-	log.Debugf("assuming role %s with input %+v", role, input)
+	if policyArns != nil {
+		arns := []*sts.PolicyDescriptorType{}
+		for _, a := range policyArns {
+			arns = append(arns, &sts.PolicyDescriptorType{
+				Arn: aws.String(a),
+			})
+		}
+		input.SetPolicyArns(arns)
+	}
+
+	log.Debugf("assuming role %s with input %+v", roleArn, input)
 
 	out, err := stsService.AssumeRole(ctx, &input)
 	if err != nil {
