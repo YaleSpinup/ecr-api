@@ -1,12 +1,16 @@
 package api
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/aws/aws-sdk-go/service/iam"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -60,6 +64,21 @@ type RepositoryResponse struct {
 	Tags               []*Tag
 }
 
+// RepositoryUserCreateRequest is the request payload for creating a repository user
+type RepositoryUserCreateRequest struct {
+	UserName string
+	Groups   []string
+	Tags     []*Tag
+}
+
+// RepositoryUserResponse is the response payload for user operations
+type RepositoryUserResponse struct {
+	UserName   string
+	AccessKeys []*iam.AccessKeyMetadata
+	Groups     []string
+	Tags       []*Tag
+}
+
 // Tag is our AWS compatible tag struct that can be converted to specific tag types
 type Tag struct {
 	Key   string
@@ -91,6 +110,33 @@ func repositoryResponseFromECR(r *ecr.Repository, t []*ecr.Tag) *RepositoryRespo
 	}
 
 	return &repository
+}
+
+// repositoryUserResponseFromIAM maps IAM response to a common struct
+func repositoryUserResponseFromIAM(u *iam.User, keys []*iam.AccessKeyMetadata) *RepositoryUserResponse {
+	log.Debugf("mapping iam user %s", awsutil.Prettify(u))
+
+	userName := aws.StringValue(u.UserName)
+
+	// path is format: /spinup/%s/%s/%s/
+	path := strings.Split(aws.StringValue(u.Path), "/")
+
+	if len(path) > 2 {
+		prefix := fmt.Sprintf("%s-%s-", path[len(path)-3], path[len(path)-2])
+
+		log.Debugf("trimming prefix '%s' from username %s", prefix, userName)
+
+		userName = strings.TrimPrefix(userName, prefix)
+	}
+
+	user := RepositoryUserResponse{
+		// TODO: cleanup format of username to be what was passed on create and add groups
+		UserName:   userName,
+		AccessKeys: keys,
+		Tags:       fromIAMTags(u.Tags),
+	}
+
+	return &user
 }
 
 // normalizTags strips the org, spaceid and name from the given tags and ensures they
@@ -136,12 +182,36 @@ func fromECRTags(ecrTags []*ecr.Tag) []*Tag {
 
 // toECRTags converts from api Tags to ECR tags
 func toECRTags(tags []*Tag) []*ecr.Tag {
-	efsTags := make([]*ecr.Tag, 0, len(tags))
+	ecrTags := make([]*ecr.Tag, 0, len(tags))
 	for _, t := range tags {
-		efsTags = append(efsTags, &ecr.Tag{
+		ecrTags = append(ecrTags, &ecr.Tag{
 			Key:   aws.String(t.Key),
 			Value: aws.String(t.Value),
 		})
 	}
-	return efsTags
+	return ecrTags
+}
+
+// fromIAMTags converts from IAM tags to api Tags
+func fromIAMTags(iamTags []*iam.Tag) []*Tag {
+	tags := make([]*Tag, 0, len(iamTags))
+	for _, t := range iamTags {
+		tags = append(tags, &Tag{
+			Key:   aws.StringValue(t.Key),
+			Value: aws.StringValue(t.Value),
+		})
+	}
+	return tags
+}
+
+// toIAMTags converts from api Tags to IAM tags
+func toIAMTags(tags []*Tag) []*iam.Tag {
+	iamTags := make([]*iam.Tag, 0, len(tags))
+	for _, t := range tags {
+		iamTags = append(iamTags, &iam.Tag{
+			Key:   aws.String(t.Key),
+			Value: aws.String(t.Value),
+		})
+	}
+	return iamTags
 }

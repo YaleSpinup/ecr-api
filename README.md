@@ -17,6 +17,13 @@ PUT    /v1/ecr/{account}/repositories/{group}/{name}
 DELETE /v1/ecr/{account}/repositories/{group}/{name}
 
 GET    /v1/ecr/{account}/repositories/{group}/{name}/images
+
+GET    /v1/ecr/{account}/users
+GET    /v1/ecr/{account}/users/{group}
+GET    /v1/ecr/{account}/users/{group}/{name}
+POST   /v1/ecr/{account}/users/{group}/{name}
+GET    /v1/ecr/{account}/users/{group}/{name}/{user}
+DELETE /v1/ecr/{account}/users/{group}/{name}/{user}
 ```
 
 ## Authentication
@@ -25,7 +32,9 @@ Authentication is accomplished via an encrypted pre-shared key passed via the `X
 
 ## Usage
 
-### Create a repository
+### Repositories
+
+#### Create a repository
 
 POST `/v1/ecr/{account}/repositories/{group}`
 
@@ -36,7 +45,7 @@ POST `/v1/ecr/{account}/repositories/{group}`
 | **404 Not Found**             | account not found               |
 | **500 Internal Server Error** | a server error occurred         |
 
-#### Example create request body
+##### Example create request body
 
 ```json
 {
@@ -55,7 +64,7 @@ POST `/v1/ecr/{account}/repositories/{group}`
 }
 ```
 
-#### Example create response body
+##### Example create response body
 
 ```json
 {
@@ -89,7 +98,7 @@ POST `/v1/ecr/{account}/repositories/{group}`
 }
 ```
 
-### List Repositories
+#### List Repositories
 
 GET `/v1/ecr/{account}/repositories`
 
@@ -116,7 +125,7 @@ GET `/v1/ecr/{account}/repositories`
 ]
 ```
 
-### List Repositories by group id
+#### List Repositories by group id
 
 GET `/v1/ecr/{account}/repositories/{group}`
 
@@ -128,7 +137,7 @@ GET `/v1/ecr/{account}/repositories/{group}`
 | **404 Not Found**             | account not found                |
 | **500 Internal Server Error** | a server error occurred          |
 
-#### Example list by group response
+##### Example list by group response
 
 ```json
 [
@@ -136,7 +145,7 @@ GET `/v1/ecr/{account}/repositories/{group}`
 ]
 ```
 
-### Get details about a Repository
+#### Get details about a Repository
 
 GET `/v1/ecr/{account}/repositories/{group}/{id}`
 
@@ -148,7 +157,7 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}`
 | **404 Not Found**             | account or repository not found  |
 | **500 Internal Server Error** | a server error occurred          |
 
-#### Example show response
+##### Example show response
 
 ```json
 {
@@ -182,11 +191,11 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}`
 }
 ```
 
-### Update a repository
+#### Update a repository
 
 PUT `/1/ecr/{account}/repositories/{group}/{id}`
 
-#### Example update request body
+##### Example update request body
 
 ```json
 {
@@ -200,7 +209,7 @@ PUT `/1/ecr/{account}/repositories/{group}/{id}`
 }
 ```
 
-#### Example update response body
+##### Example update response body
 
 ```json
 {
@@ -238,7 +247,7 @@ PUT `/1/ecr/{account}/repositories/{group}/{id}`
 }
 ```
 
-### Delete a repository and all images
+#### Delete a repository and all images
 
 DELETE `/v1/ecr/{account}/repositories/{group}/{id}`
 
@@ -251,7 +260,9 @@ DELETE `/v1/ecr/{account}/repositories/{group}/{id}`
 | **409 Conflict**              | repository is not in the available state |
 | **500 Internal Server Error** | a server error occurred                  |
 
-### List images in a repository
+### Images
+
+#### List images in a repository
 
 GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
 
@@ -263,7 +274,7 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
 | **404 Not Found**             | account or repository not found  |
 | **500 Internal Server Error** | a server error occurred          |
 
-#### Example response body
+##### Example response body
 
 ```json
 [
@@ -290,6 +301,32 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
     }
 ]
 ```
+
+### Users
+
+#### List all users
+
+GET    /v1/ecr/{account}/users
+
+#### List all users in a space (group)
+
+GET    /v1/ecr/{account}/users/{group}
+
+#### List all users for a repository
+
+GET    /v1/ecr/{account}/users/{group}/{name}
+
+#### Create a user
+
+POST   /v1/ecr/{account}/users/{group}/{name}
+
+#### Get details about a user
+
+GET    /v1/ecr/{account}/users/{group}/{name}/{user}
+
+#### Delete a user
+
+DELETE /v1/ecr/{account}/users/{group}/{name}/{user}
 
 ## License
 
