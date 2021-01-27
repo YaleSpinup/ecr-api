@@ -4,61 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecr-api/iam"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
-
-type iamOrchestrator struct {
-	client iam.IAM
-	org    string
-}
-
-var ecrAdminPolicyDoc string
-var EcrAdminPolicy = iam.PolicyDocument{
-	Version: "2012-10-17",
-	Statement: []iam.StatementEntry{
-		{
-			Sid:    "AllowActionsOnRepositoriesInSpaceAndOrg",
-			Effect: "Allow",
-			Action: []string{
-				"ecr:PutLifecyclePolicy",
-				"ecr:PutImageTagMutability",
-				"ecr:DescribeImageScanFindings",
-				"ecr:GetDownloadUrlForLayer",
-				"ecr:GetAuthorizationToken",
-				"ecr:UploadLayerPart",
-				"ecr:BatchDeleteImage",
-				"ecr:ListImages",
-				"ecr:DeleteLifecyclePolicy",
-				"ecr:PutImage",
-				"ecr:BatchGetImage",
-				"ecr:CompleteLayerUpload",
-				"ecr:DescribeImages",
-				"ecr:DeleteRegistryPolicy",
-				"ecr:InitiateLayerUpload",
-				"ecr:BatchCheckLayerAvailability",
-			},
-			Resource: "*",
-			Condition: iam.Condition{
-				"StringEquals": iam.ConditionStatement{
-					"aws:ResourceTag/spinup:org":     "${aws:PrincipalTag/spinup:org}",
-					"aws:ResourceTag/spinup:spaceid": "${aws:PrincipalTag/spinup:spaceid}",
-					"aws:ResourceTag/Name":           "${aws:PrincipalTag/Name}",
-				},
-			},
-		},
-		{
-			Sid:      "AllowDockerLogin",
-			Effect:   "Allow",
-			Action:   []string{"ecr:GetAuthorizationToken"},
-			Resource: "*",
-		},
-	},
-}
 
 // UsersCreateHandler creates a user that can access the repository.  It first checks if the shared policy exists
 // in the account and creates it/updates it as needed.
@@ -108,19 +59,8 @@ func (s *server) UsersCreateHandler(w http.ResponseWriter, r *http.Request) {
 		org: s.org,
 	}
 
-	// start prep account for user management
-
-	path := fmt.Sprintf("/spinup/%s/", s.org)
-
-	policyName := fmt.Sprintf("SpinupECRAdminPolicy-%s", s.org)
-	policyArn, err := orch.userCreatePolicyIfMissing(r.Context(), policyName, path)
+	groupName, err := orch.prepareAccount(r.Context())
 	if err != nil {
-		handleError(w, err)
-		return
-	}
-
-	groupName := fmt.Sprintf("SpinupECRAdminGroup-%s", s.org)
-	if err := orch.userCreateGroupIfMissing(r.Context(), groupName, path, policyArn); err != nil {
 		handleError(w, err)
 		return
 	}
@@ -165,42 +105,22 @@ func (s *server) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	service := iam.New(
-		iam.WithSession(session.Session),
-	)
-
-	path := fmt.Sprintf("/spinup/%s", s.org)
-
-	if group != "" {
-		path = path + fmt.Sprintf("/%s", group)
+	orch := &iamOrchestrator{
+		client: iam.New(
+			iam.WithSession(session.Session),
+		),
+		org: s.org,
 	}
 
-	if name != "" {
-		path = path + fmt.Sprintf("/%s", name)
-	}
-
-	users, err := service.ListUsers(r.Context(), path)
+	output, err := orch.listRepositoryUsers(r.Context(), group, name)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	ps := strings.Split(path, "/")
-	if len(ps) > 2 {
-		prefix := fmt.Sprintf("%s-%s-", ps[len(ps)-2], ps[len(ps)-1])
-
-		trimmed := make([]string, 0, len(users))
-		for _, u := range users {
-			log.Debugf("trimming prefix '%s' from username %s", prefix, u)
-			u = strings.TrimPrefix(u, prefix)
-			trimmed = append(trimmed, u)
-		}
-		users = trimmed
-	}
-
-	j, err := json.Marshal(users)
+	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal reasponse(%v) into JSON: %s", users, err)
+		log.Errorf("cannot marshal reasponse(%v) into JSON: %s", output, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -233,26 +153,18 @@ func (s *server) UsersShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	service := iam.New(
-		iam.WithSession(session.Session),
-	)
+	orch := &iamOrchestrator{
+		client: iam.New(
+			iam.WithSession(session.Session),
+		),
+		org: s.org,
+	}
 
-	path := fmt.Sprintf("/spinup/%s/%s/%s/", s.org, group, name)
-	userName := fmt.Sprintf("%s-%s-%s", group, name, user)
-
-	iamUser, err := service.GetUserWithPath(r.Context(), path, userName)
+	output, err := orch.getRepositoryUser(r.Context(), group, name, user)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
-
-	keys, err := service.ListAccessKeys(r.Context(), userName)
-	if err != nil {
-		handleError(w, err)
-		return
-	}
-
-	output := repositoryUserResponseFromIAM(iamUser, keys)
 
 	j, err := json.Marshal(output)
 	if err != nil {
