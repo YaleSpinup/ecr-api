@@ -111,7 +111,12 @@ func (o *iamOrchestrator) getRepositoryUser(ctx context.Context, group, name, us
 		return nil, err
 	}
 
-	return repositoryUserResponseFromIAM(iamUser, keys), nil
+	groups, err := o.client.ListGroupsForUser(ctx, userName)
+	if err != nil {
+		return nil, err
+	}
+
+	return repositoryUserResponseFromIAM(o.org, iamUser, keys, groups), nil
 }
 
 func (o *iamOrchestrator) repositoryUserDelete(ctx context.Context, name, group, user string) error {
@@ -283,5 +288,5 @@ func (o *iamOrchestrator) repositoryUserCreate(ctx context.Context, name, group,
 		}
 	}
 
-	return repositoryUserResponseFromIAM(user, nil), nil
+	return repositoryUserResponseFromIAM(o.org, user, nil, []string{groupName}), nil
 }

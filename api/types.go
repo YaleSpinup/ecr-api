@@ -113,7 +113,7 @@ func repositoryResponseFromECR(r *ecr.Repository, t []*ecr.Tag) *RepositoryRespo
 }
 
 // repositoryUserResponseFromIAM maps IAM response to a common struct
-func repositoryUserResponseFromIAM(u *iam.User, keys []*iam.AccessKeyMetadata) *RepositoryUserResponse {
+func repositoryUserResponseFromIAM(org string, u *iam.User, keys []*iam.AccessKeyMetadata, groups []string) *RepositoryUserResponse {
 	log.Debugf("mapping iam user %s", awsutil.Prettify(u))
 
 	userName := aws.StringValue(u.UserName)
@@ -129,11 +129,19 @@ func repositoryUserResponseFromIAM(u *iam.User, keys []*iam.AccessKeyMetadata) *
 		userName = strings.TrimPrefix(userName, prefix)
 	}
 
+	if keys == nil {
+		keys = []*iam.AccessKeyMetadata{}
+	}
+
+	for i, g := range groups {
+		groups[i] = strings.TrimSuffix(g, "-"+org)
+	}
+
 	user := RepositoryUserResponse{
-		// TODO: cleanup format of username to be what was passed on create and add groups
-		UserName:   userName,
 		AccessKeys: keys,
+		Groups:     groups,
 		Tags:       fromIAMTags(u.Tags),
+		UserName:   userName,
 	}
 
 	return &user
