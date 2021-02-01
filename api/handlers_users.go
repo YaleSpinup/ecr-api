@@ -83,6 +83,8 @@ func (s *server) UsersCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// UserListHandler lists the users within a prefix.  Specific repositories, group name and
+// all managed users with an empty prefix are acceptable and expand the scope of the list.
 func (s *server) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
@@ -130,6 +132,7 @@ func (s *server) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// UsersShowHandler gets the information about a repository user.
 func (s *server) UsersShowHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
@@ -178,6 +181,7 @@ func (s *server) UsersShowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// UsersDeleteHandler deletes a repository user.
 func (s *server) UsersDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
