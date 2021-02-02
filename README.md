@@ -18,12 +18,10 @@ DELETE /v1/ecr/{account}/repositories/{group}/{name}
 
 GET    /v1/ecr/{account}/repositories/{group}/{name}/images
 
-GET    /v1/ecr/{account}/users
-GET    /v1/ecr/{account}/users/{group}
-GET    /v1/ecr/{account}/users/{group}/{name}
-POST   /v1/ecr/{account}/users/{group}/{name}
-GET    /v1/ecr/{account}/users/{group}/{name}/{user}
-DELETE /v1/ecr/{account}/users/{group}/{name}/{user}
+GET    /v1/ecr/{account}/repositories/{group}/{name}/users
+POST   /v1/ecr/{account}/repositories/{group}/{name}/users
+GET    /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
+DELETE /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
 ```
 
 ## Authentication

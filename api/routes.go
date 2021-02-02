@@ -40,10 +40,9 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/repositories/{group}/{name}/images", s.RepositoriesImageListHandler).Methods(http.MethodGet)
 
 	// User management for repositories
-	api.HandleFunc("/{account}/users", s.UsersListHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/users/{group}", s.UsersListHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/users/{group}/{name}", s.UsersListHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/users/{group}/{name}", s.UsersCreateHandler).Methods(http.MethodPost)
-	api.HandleFunc("/{account}/users/{group}/{name}/{user}", s.UsersShowHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/users/{group}/{name}/{user}", s.UsersDeleteHandler).Methods(http.MethodDelete)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users", s.UsersListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users", s.UsersCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users/{user}", s.UsersShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users/{user}", s.UsersUpdateHandler).Methods(http.MethodPut)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users/{user}", s.UsersDeleteHandler).Methods(http.MethodDelete)
 }

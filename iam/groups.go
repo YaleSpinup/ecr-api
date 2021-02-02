@@ -85,7 +85,7 @@ func (i *IAM) AttachGroupPolicy(ctx context.Context, groupName, policyArn string
 }
 
 func (i *IAM) ListAttachedGroupPolicies(ctx context.Context, groupName, path string) ([]string, error) {
-	if groupName == "" || path == "" {
+	if groupName == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 

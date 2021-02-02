@@ -11,14 +11,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 
-	im "github.com/YaleSpinup/ecr-api/iam"
+	"github.com/YaleSpinup/ecr-api/iam"
 	log "github.com/sirupsen/logrus"
 )
 
 var ecrAdminPolicyDoc string
-var EcrAdminPolicy = im.PolicyDocument{
+var EcrAdminPolicy = iam.PolicyDocument{
 	Version: "2012-10-17",
-	Statement: []im.StatementEntry{
+	Statement: []iam.StatementEntry{
 		{
 			Sid:    "AllowActionsOnRepositoriesInSpaceAndOrg",
 			Effect: "Allow",
@@ -41,8 +41,8 @@ var EcrAdminPolicy = im.PolicyDocument{
 				"ecr:BatchCheckLayerAvailability",
 			},
 			Resource: "*",
-			Condition: im.Condition{
-				"StringEquals": im.ConditionStatement{
+			Condition: iam.Condition{
+				"StringEquals": iam.ConditionStatement{
 					"aws:ResourceTag/spinup:org":     "${aws:PrincipalTag/spinup:org}",
 					"aws:ResourceTag/spinup:spaceid": "${aws:PrincipalTag/spinup:spaceid}",
 					"aws:ResourceTag/Name":           "${aws:PrincipalTag/Name}",
@@ -59,45 +59,34 @@ var EcrAdminPolicy = im.PolicyDocument{
 }
 
 type iamOrchestrator struct {
-	client im.IAM
+	client iam.IAM
 	org    string
 }
 
+// listRepositoryUsers lists users in a repository
 func (o *iamOrchestrator) listRepositoryUsers(ctx context.Context, group, name string) ([]string, error) {
-
-	path := fmt.Sprintf("/spinup/%s", o.org)
-
-	if group != "" {
-		path = path + fmt.Sprintf("/%s", group)
-	}
-
-	if name != "" {
-		path = path + fmt.Sprintf("/%s", name)
-	}
+	path := fmt.Sprintf("/spinup/%s/%s/%s", o.org, group, name)
 
 	users, err := o.client.ListUsers(ctx, path)
 	if err != nil {
 		return nil, err
 	}
 
-	ps := strings.Split(path, "/")
-	if len(ps) > 2 {
-		prefix := fmt.Sprintf("%s-%s-", ps[len(ps)-2], ps[len(ps)-1])
+	prefix := fmt.Sprintf("%s-%s-", group, name)
 
-		trimmed := make([]string, 0, len(users))
-		for _, u := range users {
-			log.Debugf("trimming prefix '%s' from username %s", prefix, u)
-			u = strings.TrimPrefix(u, prefix)
-			trimmed = append(trimmed, u)
-		}
-		users = trimmed
+	trimmed := make([]string, 0, len(users))
+	for _, u := range users {
+		log.Debugf("trimming prefix '%s' from username %s", prefix, u)
+		u = strings.TrimPrefix(u, prefix)
+		trimmed = append(trimmed, u)
 	}
+	users = trimmed
 
 	return users, nil
 }
 
+// getRepositoryuser gets the details about a user
 func (o *iamOrchestrator) getRepositoryUser(ctx context.Context, group, name, user string) (*RepositoryUserResponse, error) {
-
 	path := fmt.Sprintf("/spinup/%s/%s/%s/", o.org, group, name)
 	userName := fmt.Sprintf("%s-%s-%s", group, name, user)
 
@@ -119,6 +108,7 @@ func (o *iamOrchestrator) getRepositoryUser(ctx context.Context, group, name, us
 	return repositoryUserResponseFromIAM(o.org, iamUser, keys, groups), nil
 }
 
+// repositoryUserDelete orchestrates removing a user from all groups and deleting the user
 func (o *iamOrchestrator) repositoryUserDelete(ctx context.Context, name, group, user string) error {
 	path := fmt.Sprintf("/spinup/%s/%s/%s/", o.org, group, name)
 	userName := fmt.Sprintf("%s-%s-%s", group, name, user)
@@ -205,7 +195,7 @@ func (o *iamOrchestrator) userCreatePolicyIfMissing(ctx context.Context, name, p
 		return "", err
 	}
 
-	doc := im.PolicyDocument{}
+	doc := iam.PolicyDocument{}
 	if err := json.Unmarshal([]byte(d), &doc); err != nil {
 		return "", err
 	}
@@ -229,7 +219,7 @@ func (o *iamOrchestrator) userCreateGroupIfMissing(ctx context.Context, name, pa
 	_, err := o.client.GetGroupWithPath(ctx, name, path)
 	if err != nil {
 		if aerr, ok := err.(apierror.Error); ok && aerr.Code == apierror.ErrNotFound {
-			log.Infof("policy %s not found, creating", name)
+			log.Infof("group %s not found, creating", name)
 
 			if _, err := o.client.CreateGroup(ctx, name, path); err != nil {
 				return err

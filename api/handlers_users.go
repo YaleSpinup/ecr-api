@@ -181,7 +181,13 @@ func (s *server) UsersShowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
-// UsersDeleteHandler deletes a repository user.
+// UsersUpdateHandler updates a repository user
+func (s *server) UsersUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UsersDeleteHandler deletes a repository user
 func (s *server) UsersDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)

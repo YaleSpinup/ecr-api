@@ -66,7 +66,6 @@ func (i *IAM) GetDefaultPolicyVersion(ctx context.Context, arn, version string) 
 	log.Debugf("got output from getting policy version: %+v", out)
 
 	return out.PolicyVersion, nil
-
 }
 
 func (i *IAM) WaitForPolicy(ctx context.Context, policyArn string) error {
