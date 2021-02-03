@@ -45,7 +45,7 @@ var EcrAdminPolicy = iam.PolicyDocument{
 				"StringEquals": iam.ConditionStatement{
 					"aws:ResourceTag/spinup:org":     "${aws:PrincipalTag/spinup:org}",
 					"aws:ResourceTag/spinup:spaceid": "${aws:PrincipalTag/spinup:spaceid}",
-					"aws:ResourceTag/Name":           "${aws:PrincipalTag/Name}",
+					"aws:ResourceTag/Name":           "${aws:PrincipalTag/ResourceName}",
 				},
 			},
 		},
@@ -257,7 +257,7 @@ func (o *iamOrchestrator) repositoryUserCreate(ctx context.Context, name, group,
 	userName := fmt.Sprintf("%s-%s-%s", group, name, req.UserName)
 	repository := fmt.Sprintf("%s/%s", group, name)
 
-	req.Tags = normalizeTags(o.org, group, repository, req.Tags)
+	req.Tags = normalizeUserTags(o.org, group, repository, userName, req.Tags)
 
 	user, err := o.client.CreateUser(ctx, userName, path, toIAMTags(req.Tags))
 	if err != nil {

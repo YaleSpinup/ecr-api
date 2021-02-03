@@ -176,6 +176,40 @@ func normalizeTags(org, group, name string, tags []*Tag) []*Tag {
 	return normalizedTags
 }
 
+// normalizUserTags strips the org, spaceid, resource, and name from the given tags
+// and ensures they are set to the API org, group string, managed resource and name
+// passed to the request
+func normalizeUserTags(org, group, resource, name string, tags []*Tag) []*Tag {
+	normalizedTags := []*Tag{}
+	for _, t := range tags {
+		if t.Key == "spinup:spaceid" || t.Key == "spinup:org" || t.Key == "ResourceName" || t.Key == "Name" {
+			continue
+		}
+		normalizedTags = append(normalizedTags, t)
+	}
+
+	normalizedTags = append(normalizedTags,
+		&Tag{
+			Key:   "Name",
+			Value: name,
+		},
+		&Tag{
+			Key:   "ResourceName",
+			Value: resource,
+		},
+		&Tag{
+			Key:   "spinup:org",
+			Value: org,
+		},
+		&Tag{
+			Key:   "spinup:spaceid",
+			Value: group,
+		})
+
+	log.Debugf("returning normalized tags: %+v", normalizedTags)
+	return normalizedTags
+}
+
 // fromECRTags converts from ECR tags to api Tags
 func fromECRTags(ecrTags []*ecr.Tag) []*Tag {
 	tags := make([]*Tag, 0, len(ecrTags))

@@ -247,6 +247,8 @@ PUT `/1/ecr/{account}/repositories/{group}/{id}`
 
 #### Delete a repository and all images
 
+*NOTE:* deleting a repository does not currently cleanup users, this must be done first.
+
 DELETE `/v1/ecr/{account}/repositories/{group}/{id}`
 
 | Response Code                 | Definition                               |
@@ -266,7 +268,7 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
 
 | Response Code                 | Definition                       |
 | ----------------------------- | ---------------------------------|
-| **200 OK**                    | return details of a repository   |
+| **200 OK**                    | return list of images            |
 | **400 Bad Request**           | badly formed request             |
 | **403 Forbidden**             | bad token or fail to assume role |
 | **404 Not Found**             | account or repository not found  |
@@ -302,29 +304,147 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
 
 ### Users
 
-#### List all users
-
-GET    /v1/ecr/{account}/users
-
-#### List all users in a space (group)
-
-GET    /v1/ecr/{account}/users/{group}
+Repository users are created in the same account as the repository.  An account is "bootstrapped" by
+the create action if its not already prepared to contain repository users.  This bootstrapping creates
+a shared role and group for admin users.  The role grants a user access to a repository based on the tags
+`spinup:org`, `spinup:spaceid` and `ResourceName` (the repository name).
 
 #### List all users for a repository
 
-GET    /v1/ecr/{account}/users/{group}/{name}
+GET    /v1/ecr/{account}/repositories/{group}/{name}/users
+
+| Response Code                 | Definition                       |
+| ----------------------------- | ---------------------------------|
+| **200 OK**                    | return the list of users         |
+| **400 Bad Request**           | badly formed request             |
+| **403 Forbidden**             | bad token or fail to assume role |
+| **404 Not Found**             | account not found                |
+| **500 Internal Server Error** | a server error occurred          |
+
+##### Example list users response
+
+```json
+[
+    "user1"
+]
+```
 
 #### Create a user
 
-POST   /v1/ecr/{account}/users/{group}/{name}
+POST   /v1/ecr/{account}/repositories/{group}/{name}/users
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | create a repository             |
+| **400 Bad Request**           | badly formed request            |
+| **404 Not Found**             | account not found               |
+| **500 Internal Server Error** | a server error occurred         |
+
+##### Example create user request body
+
+```json
+{
+    "username": "user1",
+    "tags": [
+        {
+            "key": "application",
+            "value": "myapp"
+        }
+    ],
+    "groups": [
+        "SpinupECRAdminGroup"
+    ]
+}
+```
+
+##### Example create user response body
+
+```json
+{
+    "UserName": "user1",
+    "AccessKeys": [],
+    "Groups": [
+        "SpinupECRAdminGroup"
+    ],
+    "Tags": [
+        {
+            "Key": "application",
+            "Value": "myapp"
+        },
+        {
+            "Key": "ResourceName",
+            "Value": "spindev-00001-myAwesomeRepository-user1"
+        },
+        {
+            "Key": "ResourceName",
+            "Value": "spindev-00001/myAwesomeRepository"
+        },
+        {
+            "Key": "spinup:org",
+            "Value": "spindev"
+        },
+        {
+            "Key": "spinup:spaceid",
+            "Value": "spindev-00001"
+        }
+    ]
+}
+```
 
 #### Get details about a user
 
-GET    /v1/ecr/{account}/users/{group}/{name}/{user}
+GET    /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
+
+| Response Code                 | Definition                       |
+| ----------------------------- | ---------------------------------|
+| **200 OK**                    | return details of a user         |
+| **400 Bad Request**           | badly formed request             |
+| **403 Forbidden**             | bad token or fail to assume role |
+| **404 Not Found**             | account or user not found        |
+| **500 Internal Server Error** | a server error occurred          |
+
+##### Example show user response
+
+```json
+{
+    "UserName": "user1",
+    "AccessKeys": [],
+    "Groups": [
+        "SpinupECRAdminGroup"
+    ],
+    "Tags": [
+        {
+            "Key": "application",
+            "Value": "myapps"
+        },
+        {
+            "Key": "Name",
+            "Value": "spincool-00002/camdenstestrepo01"
+        },
+        {
+            "Key": "spinup:org",
+            "Value": "spincool"
+        },
+        {
+            "Key": "spinup:spaceid",
+            "Value": "spincool-00002"
+        }
+    ]
+}
+```
 
 #### Delete a user
 
-DELETE /v1/ecr/{account}/users/{group}/{name}/{user}
+DELETE /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
+
+| Response Code                 | Definition                               |
+| ----------------------------- | -----------------------------------------|
+| **200 Submitted**             | delete request is submitted              |
+| **400 Bad Request**           | badly formed request                     |
+| **403 Forbidden**             | bad token or fail to assume role         |
+| **404 Not Found**             | account or user not found                |
+| **409 Conflict**              | user is not in the available state       |
+| **500 Internal Server Error** | a server error occurred                  |
 
 ## License
 
