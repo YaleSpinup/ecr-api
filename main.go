@@ -33,9 +33,6 @@ var (
 	// Version is the main version number
 	Version = "0.0.0"
 
-	// VersionPrerelease is a prerelease marker
-	VersionPrerelease = ""
-
 	// Buildstamp is the timestamp the binary was built, it should be set at buildtime with ldflags
 	Buildstamp = "No BuildStamp Provided"
 
@@ -70,10 +67,9 @@ func main() {
 	}
 
 	config.Version = common.Version{
-		Version:           Version,
-		VersionPrerelease: VersionPrerelease,
-		BuildStamp:        Buildstamp,
-		GitHash:           Githash,
+		Version:    Version,
+		BuildStamp: Buildstamp,
+		GitHash:    Githash,
 	}
 
 	// Set the loglevel, info if it's unset

@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 RUN go version
 RUN go test ./... -cover
-RUN go build -o /app/api.out -ldflags="-X main.Version=$version -X main.VersionPrerelease=$prerelease -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
+RUN go build -o /app/api.out -ldflags="-X main.Version=$version -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
 RUN /app/api.out -version
 
 # final stage
