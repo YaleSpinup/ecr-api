@@ -64,6 +64,45 @@ func (i *IAM) GetUserWithPath(ctx context.Context, path, name string) (*iam.User
 	return out.User, nil
 }
 
+func (i *IAM) CreateAccessKey(ctx context.Context, name string) (*iam.AccessKey, error) {
+	if name == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("creating access key for %s", name)
+
+	out, err := i.Service.CreateAccessKeyWithContext(ctx, &iam.CreateAccessKeyInput{
+		UserName: aws.String(name),
+	})
+
+	if err != nil {
+		return nil, ErrCode("failed to create access keys", err)
+	}
+
+	log.Debugf("got output from create access keys: %+v", out)
+
+	return out.AccessKey, nil
+}
+
+func (i *IAM) DeleteAccessKey(ctx context.Context, name, keyId string) error {
+	if name == "" || keyId == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("deleting access key %s for %s", keyId, name)
+
+	_, err := i.Service.DeleteAccessKeyWithContext(ctx, &iam.DeleteAccessKeyInput{
+		AccessKeyId: aws.String(keyId),
+		UserName:    aws.String(name),
+	})
+
+	if err != nil {
+		return ErrCode("failed to delete access keys", err)
+	}
+
+	return nil
+}
+
 func (i *IAM) ListAccessKeys(ctx context.Context, name string) ([]*iam.AccessKeyMetadata, error) {
 	if name == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -163,4 +202,23 @@ func (i *IAM) ListGroupsForUser(ctx context.Context, name string) ([]string, err
 	}
 
 	return groups, nil
+}
+
+func (i *IAM) TagUser(ctx context.Context, name string, tags []*iam.Tag) error {
+	if name == "" || tags == nil {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("tagging user %s with tags %+v", name, tags)
+
+	_, err := i.Service.TagUserWithContext(ctx, &iam.TagUserInput{
+		UserName: aws.String(name),
+		Tags:     tags,
+	})
+
+	if err != nil {
+		return ErrCode("failed to tag user", err)
+	}
+
+	return nil
 }

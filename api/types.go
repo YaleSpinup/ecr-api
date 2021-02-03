@@ -73,10 +73,18 @@ type RepositoryUserCreateRequest struct {
 
 // RepositoryUserResponse is the response payload for user operations
 type RepositoryUserResponse struct {
-	UserName   string
-	AccessKeys []*iam.AccessKeyMetadata
-	Groups     []string
-	Tags       []*Tag
+	UserName          string
+	AccessKeys        []*iam.AccessKeyMetadata `json:",omitempty"`
+	AccessKey         *iam.AccessKey           `json:",omitempty"`
+	DeletedAccessKeys []string                 `json:",omitempty"`
+	Groups            []string                 `json:",omitempty"`
+	Tags              []*Tag
+}
+
+// RepositoryUserUpdateRequest is the request payload for updating a user
+type RepositoryUserUpdateRequest struct {
+	ResetKey bool
+	Tags     []*Tag
 }
 
 // Tag is our AWS compatible tag struct that can be converted to specific tag types

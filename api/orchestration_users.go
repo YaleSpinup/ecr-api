@@ -250,7 +250,7 @@ func (o *iamOrchestrator) userCreateGroupIfMissing(ctx context.Context, name, pa
 	return nil
 }
 
-func (o *iamOrchestrator) repositoryUserCreate(ctx context.Context, name, group, groupName string, req RepositoryUserCreateRequest) (*RepositoryUserResponse, error) {
+func (o *iamOrchestrator) repositoryUserCreate(ctx context.Context, name, group, groupName string, req *RepositoryUserCreateRequest) (*RepositoryUserResponse, error) {
 	log.Infof("creating repository %s user %s in group %s in iam group %s", name, req.UserName, group, groupName)
 
 	path := fmt.Sprintf("/spinup/%s/%s/%s/", o.org, group, name)
@@ -279,4 +279,51 @@ func (o *iamOrchestrator) repositoryUserCreate(ctx context.Context, name, group,
 	}
 
 	return repositoryUserResponseFromIAM(o.org, user, nil, []string{groupName}), nil
+}
+
+func (o *iamOrchestrator) repositoryUserUpdate(ctx context.Context, name, group, userName string, req *RepositoryUserUpdateRequest) (*RepositoryUserResponse, error) {
+	log.Infof("updating repository %s user %s in group %s", name, userName, group)
+
+	uname := fmt.Sprintf("%s-%s-%s", group, name, userName)
+	repository := fmt.Sprintf("%s/%s", group, name)
+
+	response := &RepositoryUserResponse{
+		UserName: userName,
+	}
+
+	if req.Tags != nil {
+		req.Tags = normalizeUserTags(o.org, group, repository, uname, req.Tags)
+		if err := o.client.TagUser(ctx, uname, toIAMTags(req.Tags)); err != nil {
+			return nil, err
+		}
+		response.Tags = req.Tags
+	}
+
+	if req.ResetKey {
+		// get a list of users access keys
+		keys, err := o.client.ListAccessKeys(ctx, uname)
+		if err != nil {
+			return nil, err
+		}
+
+		newKeyOut, err := o.client.CreateAccessKey(ctx, uname)
+		if err != nil {
+			return nil, err
+		}
+		response.AccessKey = newKeyOut
+
+		deletedKeyIds := make([]string, 0, len(keys))
+		// delete the old access keys
+		for _, k := range keys {
+			err = o.client.DeleteAccessKey(ctx, uname, aws.StringValue(k.AccessKeyId))
+			if err != nil {
+				return response, err
+			}
+			deletedKeyIds = append(deletedKeyIds, aws.StringValue(k.AccessKeyId))
+		}
+
+		response.DeletedAccessKeys = deletedKeyIds
+	}
+
+	return response, nil
 }
