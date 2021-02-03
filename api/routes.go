@@ -36,5 +36,13 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/repositories/{group}/{name}", s.RepositoriesUpdateHandler).Methods(http.MethodPut)
 	api.HandleFunc("/{account}/repositories/{group}/{name}", s.RepositoriesDeleteHandler).Methods(http.MethodDelete)
 
+	// Image specific endpoints
 	api.HandleFunc("/{account}/repositories/{group}/{name}/images", s.RepositoriesImageListHandler).Methods(http.MethodGet)
+
+	// User management for repositories
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users", s.UsersListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users", s.UsersCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users/{user}", s.UsersShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users/{user}", s.UsersUpdateHandler).Methods(http.MethodPut)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/users/{user}", s.UsersDeleteHandler).Methods(http.MethodDelete)
 }

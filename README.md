@@ -17,6 +17,11 @@ PUT    /v1/ecr/{account}/repositories/{group}/{name}
 DELETE /v1/ecr/{account}/repositories/{group}/{name}
 
 GET    /v1/ecr/{account}/repositories/{group}/{name}/images
+
+GET    /v1/ecr/{account}/repositories/{group}/{name}/users
+POST   /v1/ecr/{account}/repositories/{group}/{name}/users
+GET    /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
+DELETE /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
 ```
 
 ## Authentication
@@ -25,7 +30,9 @@ Authentication is accomplished via an encrypted pre-shared key passed via the `X
 
 ## Usage
 
-### Create a repository
+### Repositories
+
+#### Create a repository
 
 POST `/v1/ecr/{account}/repositories/{group}`
 
@@ -36,7 +43,7 @@ POST `/v1/ecr/{account}/repositories/{group}`
 | **404 Not Found**             | account not found               |
 | **500 Internal Server Error** | a server error occurred         |
 
-#### Example create request body
+##### Example create request body
 
 ```json
 {
@@ -55,7 +62,7 @@ POST `/v1/ecr/{account}/repositories/{group}`
 }
 ```
 
-#### Example create response body
+##### Example create response body
 
 ```json
 {
@@ -89,7 +96,7 @@ POST `/v1/ecr/{account}/repositories/{group}`
 }
 ```
 
-### List Repositories
+#### List Repositories
 
 GET `/v1/ecr/{account}/repositories`
 
@@ -116,7 +123,7 @@ GET `/v1/ecr/{account}/repositories`
 ]
 ```
 
-### List Repositories by group id
+#### List Repositories by group id
 
 GET `/v1/ecr/{account}/repositories/{group}`
 
@@ -128,7 +135,7 @@ GET `/v1/ecr/{account}/repositories/{group}`
 | **404 Not Found**             | account not found                |
 | **500 Internal Server Error** | a server error occurred          |
 
-#### Example list by group response
+##### Example list by group response
 
 ```json
 [
@@ -136,7 +143,7 @@ GET `/v1/ecr/{account}/repositories/{group}`
 ]
 ```
 
-### Get details about a Repository
+#### Get details about a Repository
 
 GET `/v1/ecr/{account}/repositories/{group}/{id}`
 
@@ -148,7 +155,7 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}`
 | **404 Not Found**             | account or repository not found  |
 | **500 Internal Server Error** | a server error occurred          |
 
-#### Example show response
+##### Example show response
 
 ```json
 {
@@ -182,11 +189,11 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}`
 }
 ```
 
-### Update a repository
+#### Update a repository
 
 PUT `/1/ecr/{account}/repositories/{group}/{id}`
 
-#### Example update request body
+##### Example update request body
 
 ```json
 {
@@ -200,7 +207,7 @@ PUT `/1/ecr/{account}/repositories/{group}/{id}`
 }
 ```
 
-#### Example update response body
+##### Example update response body
 
 ```json
 {
@@ -238,7 +245,9 @@ PUT `/1/ecr/{account}/repositories/{group}/{id}`
 }
 ```
 
-### Delete a repository and all images
+#### Delete a repository and all images
+
+*NOTE:* deleting a repository does not currently cleanup users, this must be done first.
 
 DELETE `/v1/ecr/{account}/repositories/{group}/{id}`
 
@@ -251,19 +260,21 @@ DELETE `/v1/ecr/{account}/repositories/{group}/{id}`
 | **409 Conflict**              | repository is not in the available state |
 | **500 Internal Server Error** | a server error occurred                  |
 
-### List images in a repository
+### Images
+
+#### List images in a repository
 
 GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
 
 | Response Code                 | Definition                       |
 | ----------------------------- | ---------------------------------|
-| **200 OK**                    | return details of a repository   |
+| **200 OK**                    | return list of images            |
 | **400 Bad Request**           | badly formed request             |
 | **403 Forbidden**             | bad token or fail to assume role |
 | **404 Not Found**             | account or repository not found  |
 | **500 Internal Server Error** | a server error occurred          |
 
-#### Example response body
+##### Example response body
 
 ```json
 [
@@ -290,6 +301,150 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
     }
 ]
 ```
+
+### Users
+
+Repository users are created in the same account as the repository.  An account is "bootstrapped" by
+the create action if its not already prepared to contain repository users.  This bootstrapping creates
+a shared role and group for admin users.  The role grants a user access to a repository based on the tags
+`spinup:org`, `spinup:spaceid` and `ResourceName` (the repository name).
+
+#### List all users for a repository
+
+GET    /v1/ecr/{account}/repositories/{group}/{name}/users
+
+| Response Code                 | Definition                       |
+| ----------------------------- | ---------------------------------|
+| **200 OK**                    | return the list of users         |
+| **400 Bad Request**           | badly formed request             |
+| **403 Forbidden**             | bad token or fail to assume role |
+| **404 Not Found**             | account not found                |
+| **500 Internal Server Error** | a server error occurred          |
+
+##### Example list users response
+
+```json
+[
+    "user1"
+]
+```
+
+#### Create a user
+
+POST   /v1/ecr/{account}/repositories/{group}/{name}/users
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | create a repository             |
+| **400 Bad Request**           | badly formed request            |
+| **404 Not Found**             | account not found               |
+| **500 Internal Server Error** | a server error occurred         |
+
+##### Example create user request body
+
+```json
+{
+    "username": "user1",
+    "tags": [
+        {
+            "key": "application",
+            "value": "myapp"
+        }
+    ],
+    "groups": [
+        "SpinupECRAdminGroup"
+    ]
+}
+```
+
+##### Example create user response body
+
+```json
+{
+    "UserName": "user1",
+    "AccessKeys": [],
+    "Groups": [
+        "SpinupECRAdminGroup"
+    ],
+    "Tags": [
+        {
+            "Key": "application",
+            "Value": "myapp"
+        },
+        {
+            "Key": "ResourceName",
+            "Value": "spindev-00001-myAwesomeRepository-user1"
+        },
+        {
+            "Key": "ResourceName",
+            "Value": "spindev-00001/myAwesomeRepository"
+        },
+        {
+            "Key": "spinup:org",
+            "Value": "spindev"
+        },
+        {
+            "Key": "spinup:spaceid",
+            "Value": "spindev-00001"
+        }
+    ]
+}
+```
+
+#### Get details about a user
+
+GET    /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
+
+| Response Code                 | Definition                       |
+| ----------------------------- | ---------------------------------|
+| **200 OK**                    | return details of a user         |
+| **400 Bad Request**           | badly formed request             |
+| **403 Forbidden**             | bad token or fail to assume role |
+| **404 Not Found**             | account or user not found        |
+| **500 Internal Server Error** | a server error occurred          |
+
+##### Example show user response
+
+```json
+{
+    "UserName": "user1",
+    "AccessKeys": [],
+    "Groups": [
+        "SpinupECRAdminGroup"
+    ],
+    "Tags": [
+        {
+            "Key": "application",
+            "Value": "myapps"
+        },
+        {
+            "Key": "Name",
+            "Value": "spincool-00002/camdenstestrepo01"
+        },
+        {
+            "Key": "spinup:org",
+            "Value": "spincool"
+        },
+        {
+            "Key": "spinup:spaceid",
+            "Value": "spincool-00002"
+        }
+    ]
+}
+```
+
+#### Delete a user
+
+DELETE /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
+
+| Response Code                 | Definition                               |
+| ----------------------------- | -----------------------------------------|
+| **200 Submitted**             | delete request is submitted              |
+| **400 Bad Request**           | badly formed request                     |
+| **403 Forbidden**             | bad token or fail to assume role         |
+| **404 Not Found**             | account or user not found                |
+| **409 Conflict**              | user is not in the available state       |
+| **500 Internal Server Error** | a server error occurred                  |
 
 ## License
 

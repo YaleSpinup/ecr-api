@@ -8,16 +8,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/ecr"
+
 	log "github.com/sirupsen/logrus"
 )
 
 // repositoryCreate orchestrates the creation of a repository from the RepositoryCreateRequest
-func (e *ecrOrchestrator) repositoryCreate(ctx context.Context, account, group string, req *RepositoryCreateRequest) (*RepositoryResponse, error) {
+func (o *ecrOrchestrator) repositoryCreate(ctx context.Context, account, group string, req *RepositoryCreateRequest) (*RepositoryResponse, error) {
 	repository := fmt.Sprintf("%s/%s", group, req.RepositoryName)
 
 	log.Debugf("creating %s repository with request %+v", repository, req)
 
-	req.Tags = normalizeTags(e.org, group, repository, req.Tags)
+	req.Tags = normalizeTags(o.org, group, repository, req.Tags)
 
 	scanOnPush := false
 	if req.ScanOnPush != "" {
@@ -48,12 +49,12 @@ func (e *ecrOrchestrator) repositoryCreate(ctx context.Context, account, group s
 
 	log.Debugf("creating repository with input %s", awsutil.Prettify(input))
 
-	out, err := e.client.CreateRepository(ctx, input)
+	out, err := o.client.CreateRepository(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 
-	tags, err := e.client.GetRepositoryTags(ctx, aws.StringValue(out.RepositoryArn))
+	tags, err := o.client.GetRepositoryTags(ctx, aws.StringValue(out.RepositoryArn))
 	if err != nil {
 		return nil, err
 	}
@@ -64,22 +65,22 @@ func (e *ecrOrchestrator) repositoryCreate(ctx context.Context, account, group s
 }
 
 // repositoryDelete orchestrates the deletion of a repository
-func (e *ecrOrchestrator) repositoryDelete(ctx context.Context, account, group, name string) (*RepositoryResponse, error) {
+func (o *ecrOrchestrator) repositoryDelete(ctx context.Context, account, group, name string) (*RepositoryResponse, error) {
 	repository := fmt.Sprintf("%s/%s", group, name)
 
 	log.Debugf("deleting repository %s", repository)
 
-	repo, err := e.client.GetRepositories(ctx, repository)
+	repo, err := o.client.GetRepositories(ctx, repository)
 	if err != nil {
 		return nil, err
 	}
 
-	tags, err := e.client.GetRepositoryTags(ctx, aws.StringValue(repo.RepositoryArn))
+	tags, err := o.client.GetRepositoryTags(ctx, aws.StringValue(repo.RepositoryArn))
 	if err != nil {
 		return nil, err
 	}
 
-	out, err := e.client.DeleteRepository(ctx, repository)
+	out, err := o.client.DeleteRepository(ctx, repository)
 	if err != nil {
 		return nil, err
 	}
@@ -90,14 +91,14 @@ func (e *ecrOrchestrator) repositoryDelete(ctx context.Context, account, group, 
 }
 
 // repositoryUpdate orchestrates updating a repository
-func (e *ecrOrchestrator) repositoryUpdate(ctx context.Context, account, group, name string, req *RepositoryUpdateRequest) (*RepositoryResponse, error) {
+func (o *ecrOrchestrator) repositoryUpdate(ctx context.Context, account, group, name string, req *RepositoryUpdateRequest) (*RepositoryResponse, error) {
 	repository := fmt.Sprintf("%s/%s", group, name)
 
 	log.Debugf("updating %s repository with request %+v", repository, req)
 
-	req.Tags = normalizeTags(e.org, group, repository, req.Tags)
+	req.Tags = normalizeTags(o.org, group, repository, req.Tags)
 
-	repo, err := e.client.GetRepositories(ctx, repository)
+	repo, err := o.client.GetRepositories(ctx, repository)
 	if err != nil {
 		return nil, err
 	}
@@ -108,23 +109,23 @@ func (e *ecrOrchestrator) repositoryUpdate(ctx context.Context, account, group, 
 			return nil, err
 		}
 
-		if err := e.client.SetImageScanningConfiguration(ctx, repository, scanOnPush); err != nil {
+		if err := o.client.SetImageScanningConfiguration(ctx, repository, scanOnPush); err != nil {
 			return nil, err
 		}
 	}
 
 	if req.Tags != nil {
-		if err := e.client.UpdateRepositoryTags(ctx, aws.StringValue(repo.RepositoryArn), toECRTags(req.Tags)); err != nil {
+		if err := o.client.UpdateRepositoryTags(ctx, aws.StringValue(repo.RepositoryArn), toECRTags(req.Tags)); err != nil {
 			return nil, err
 		}
 	}
 
-	repo, err = e.client.GetRepositories(ctx, repository)
+	repo, err = o.client.GetRepositories(ctx, repository)
 	if err != nil {
 		return nil, err
 	}
 
-	tags, err := e.client.GetRepositoryTags(ctx, aws.StringValue(repo.RepositoryArn))
+	tags, err := o.client.GetRepositoryTags(ctx, aws.StringValue(repo.RepositoryArn))
 	if err != nil {
 		return nil, err
 	}

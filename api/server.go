@@ -94,6 +94,13 @@ func NewServer(config common.Config) error {
 		session.WithExternalRoleName(config.Account.Role),
 	)
 
+	// initialize ecr admin policy document
+	policyDoc, err := json.Marshal(EcrAdminPolicy)
+	if err != nil {
+		return err
+	}
+	ecrAdminPolicyDoc = string(policyDoc)
+
 	publicURLs := map[string]string{
 		"/v1/ecr/ping":    "public",
 		"/v1/ecr/version": "public",
