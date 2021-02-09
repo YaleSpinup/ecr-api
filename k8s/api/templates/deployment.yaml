@@ -24,10 +24,12 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: {{ .Values.image }}
-          volumeMounts:
-          - name: {{ include "api.fullname" . }}-config
-            mountPath: "/app/config"
-            readOnly: true
+          env:
+            - name: API_CONFIG
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "api.fullname" . }}-config-json
+                  key: config.json
           ports:
             - name: http
               containerPort: 8080
@@ -42,10 +44,6 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      volumes:
-      - name: {{ include "api.fullname" . }}-config
-        secret:
-          secretName: {{ include "api.fullname" . }}-config-json
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

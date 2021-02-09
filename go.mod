@@ -1,6 +1,6 @@
 module github.com/YaleSpinup/ecr-api
 
-go 1.14
+go 1.15
 
 require (
 	github.com/YaleSpinup/apierror v0.1.0

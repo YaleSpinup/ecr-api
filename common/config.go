@@ -54,7 +54,7 @@ type Version struct {
 // ReadConfig decodes the configuration from an io Reader
 func ReadConfig(r io.Reader) (Config, error) {
 	var c Config
-	log.Infoln("Reading configuration")
+	log.Infoln("decoding configuration...")
 	if err := json.NewDecoder(r).Decode(&c); err != nil {
 		return c, errors.Wrap(err, "unable to decode JSON message")
 	}

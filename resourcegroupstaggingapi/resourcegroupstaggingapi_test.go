@@ -5,10 +5,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
+	"github.com/pkg/errors"
 )
 
 // mockResourceGroupsTaggingAPIClient is a fake resourcegroupstaggingapi client
@@ -113,24 +116,19 @@ func (m *mockResourceGroupsTaggingAPIClient) GetResourcesWithContext(ctx context
 		matches := true
 		for _, filter := range input.TagFilters {
 			innerMatch := func() bool {
-				m.t.Logf("processing tagfilter %+v", filter)
 				for _, rt := range r.tags {
 					if aws.StringValue(filter.Key) == rt.key {
-						m.t.Logf("tag keys match for %s (%s = %s)", r.arn, rt.key, aws.StringValue(filter.Key))
 						if len(filter.Values) == 0 {
-							m.t.Logf("appending %s to the list, keys match (%s = %s) and no value specified", r.arn, rt.key, aws.StringValue(filter.Key))
 							return true
 						}
 
 						for _, value := range aws.StringValueSlice(filter.Values) {
 							if value == rt.value {
-								m.t.Logf("appending %s to the list, keys match (%s = %s) and value matches (%s = %s)", r.arn, rt.key, aws.StringValue(filter.Key), value, rt.value)
 								return true
 							}
 						}
 					}
 				}
-				m.t.Logf("returning false for %s", r.arn)
 				return false
 			}()
 
@@ -140,7 +138,6 @@ func (m *mockResourceGroupsTaggingAPIClient) GetResourcesWithContext(ctx context
 		}
 
 		if matches {
-			m.t.Logf("resource %s matches", r.arn)
 			resourceList = append(resourceList, &resourcegroupstaggingapi.ResourceTagMapping{
 				ResourceARN: aws.String(r.arn),
 			})
@@ -194,5 +191,44 @@ func TestGetResourcesWithTags(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expected, out) {
 		t.Errorf("expected %+v, got %+v", expected, out)
+	}
+
+	if _, err := r.GetResourcesWithTags(context.TODO(), []string{}, nil); err != nil {
+		if aerr, ok := err.(apierror.Error); ok {
+			if aerr.Code != apierror.ErrBadRequest {
+				t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
+			}
+		} else {
+			t.Errorf("expected apierror.Error")
+		}
+	} else {
+		t.Error("expected error for empty filter list, got nil")
+	}
+
+	r.Service.(*mockResourceGroupsTaggingAPIClient).err = awserr.New(resourcegroupstaggingapi.ErrCodeThrottledException, "throttled", nil)
+	if _, err := r.GetResourcesWithTags(context.TODO(), []string{}, filters); err != nil {
+		if aerr, ok := err.(apierror.Error); ok {
+			if aerr.Code != apierror.ErrConflict {
+				t.Errorf("expected error code %s, got: %s", apierror.ErrConflict, aerr.Code)
+			}
+		} else {
+			t.Errorf("expected apierror.Error")
+		}
+	} else {
+		t.Error("expected error for empty filter list, got nil")
+	}
+
+	// test non-aws error
+	r.Service.(*mockResourceGroupsTaggingAPIClient).err = errors.New("things blowing up!")
+	if _, err := r.GetResourcesWithTags(context.TODO(), []string{}, filters); err != nil {
+		if aerr, ok := err.(apierror.Error); ok {
+			if aerr.Code != apierror.ErrInternalError {
+				t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
+			}
+		} else {
+			t.Errorf("expected apierror.Error")
+		}
+	} else {
+		t.Error("expected error for empty filter list, got nil")
 	}
 }

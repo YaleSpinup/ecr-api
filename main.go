@@ -17,9 +17,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package main
 
 import (
-	"bufio"
+	"bytes"
+	"encoding/base64"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -53,17 +56,11 @@ func main() {
 	if err != nil {
 		log.Fatal("unable to get working directory")
 	}
-	log.Infof("Starting ecr-api version %s%s (%s)", Version, VersionPrerelease, cwd)
+	log.Infof("Starting ecr-api version %s (%s)", Version, cwd)
 
-	configFile, err := os.Open(*configFileName)
+	config, err := common.ReadConfig(configReader())
 	if err != nil {
-		log.Fatalln("Unable to open config file", err)
-	}
-
-	r := bufio.NewReader(configFile)
-	config, err := common.ReadConfig(r)
-	if err != nil {
-		log.Fatalf("Unable to read configuration from %s.  %+v", *configFileName, err)
+		log.Fatalf("Unable to read configuration from: %+v", err)
 	}
 
 	config.Version = common.Version{
@@ -88,14 +85,42 @@ func main() {
 		log.Debug("Starting profiler on 127.0.0.1:6080")
 		go http.ListenAndServe("127.0.0.1:6080", nil)
 	}
-	log.Debugf("Read config: %+v", config)
+	log.Debugf("loaded configuration: %+v", config)
 
 	if err := api.NewServer(config); err != nil {
 		log.Fatal(err)
 	}
 }
 
+func configReader() io.Reader {
+	if configEnv := os.Getenv("API_CONFIG"); configEnv != "" {
+		log.Infof("reading configuration from API_CONFIG environment")
+
+		c, err := base64.StdEncoding.DecodeString(configEnv)
+		if err != nil {
+			log.Infof("API_CONFIG is not base64 encoded")
+			c = []byte(configEnv)
+		}
+
+		return bytes.NewReader(c)
+	}
+
+	log.Infof("reading configuration from %s", *configFileName)
+
+	configFile, err := os.Open(*configFileName)
+	if err != nil {
+		log.Fatalln("unable to open config file", err)
+	}
+
+	c, err := ioutil.ReadAll(configFile)
+	if err != nil {
+		log.Fatalln("unable to read config file", err)
+	}
+
+	return bytes.NewReader(c)
+}
+
 func vers() {
-	fmt.Printf("ecr-api Version: %s%s\n", Version, VersionPrerelease)
+	fmt.Printf("ecr-api Version: %s\n", Version)
 	os.Exit(0)
 }
