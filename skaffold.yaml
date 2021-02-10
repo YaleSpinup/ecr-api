@@ -8,6 +8,9 @@ build:
   local:
     useBuildkit: true
 deploy:
+  kubectl:
+    manifests:
+      - k8s/k8s-*
   helm:
     releases:
     - name: ecrapi
