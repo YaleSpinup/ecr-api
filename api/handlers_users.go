@@ -53,12 +53,10 @@ func (s *server) UsersCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orch := &iamOrchestrator{
-		client: iam.New(
-			iam.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
 
 	groupName, err := orch.prepareAccount(r.Context())
 	if err != nil {
@@ -108,12 +106,10 @@ func (s *server) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orch := &iamOrchestrator{
-		client: iam.New(
-			iam.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
 
 	output, err := orch.listRepositoryUsers(r.Context(), group, name)
 	if err != nil {
@@ -157,12 +153,10 @@ func (s *server) UsersShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orch := &iamOrchestrator{
-		client: iam.New(
-			iam.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
 
 	output, err := orch.getRepositoryUser(r.Context(), group, name, user)
 	if err != nil {
@@ -213,12 +207,10 @@ func (s *server) UsersUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orch := &iamOrchestrator{
-		client: iam.New(
-			iam.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
 
 	resp, err := orch.repositoryUserUpdate(r.Context(), name, group, userName, &req)
 	if err != nil {
@@ -261,12 +253,10 @@ func (s *server) UsersDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orch := &iamOrchestrator{
-		client: iam.New(
-			iam.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
 
 	if err := orch.repositoryUserDelete(r.Context(), name, group, userName); err != nil {
 		handleError(w, err)

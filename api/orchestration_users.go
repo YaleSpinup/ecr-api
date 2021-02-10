@@ -58,11 +58,6 @@ var EcrAdminPolicy = iam.PolicyDocument{
 	},
 }
 
-type iamOrchestrator struct {
-	client iam.IAM
-	org    string
-}
-
 // listRepositoryUsers lists users in a repository
 func (o *iamOrchestrator) listRepositoryUsers(ctx context.Context, group, name string) ([]string, error) {
 	path := fmt.Sprintf("/spinup/%s/%s/%s", o.org, group, name)

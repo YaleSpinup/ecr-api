@@ -17,11 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type ecrOrchestrator struct {
-	client ecr.ECR
-	org    string
-}
-
 // RepositoriesCreateHandler is the http handler for creating a repository
 func (s *server) RepositoriesCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
@@ -51,12 +46,10 @@ func (s *server) RepositoriesCreateHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	orch := &ecrOrchestrator{
-		client: ecr.New(
-			ecr.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newEcrOrchestrator(
+		ecr.New(ecr.WithSession(session.Session)),
+		s.org,
+	)
 
 	resp, err := orch.repositoryCreate(r.Context(), account, group, &req)
 	if err != nil {
@@ -239,12 +232,10 @@ func (s *server) RepositoriesUpdateHandler(w http.ResponseWriter, r *http.Reques
 		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
 	}
 
-	orch := &ecrOrchestrator{
-		client: ecr.New(
-			ecr.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newEcrOrchestrator(
+		ecr.New(ecr.WithSession(session.Session)),
+		s.org,
+	)
 
 	resp, err := orch.repositoryUpdate(r.Context(), account, group, name, &req)
 	if err != nil {
@@ -285,11 +276,10 @@ func (s *server) RepositoriesDeleteHandler(w http.ResponseWriter, r *http.Reques
 		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
 	}
 
-	orch := &ecrOrchestrator{
-		client: ecr.New(
-			ecr.WithSession(session.Session),
-		),
-	}
+	orch := newEcrOrchestrator(
+		ecr.New(ecr.WithSession(session.Session)),
+		s.org,
+	)
 
 	resp, err := orch.repositoryDelete(r.Context(), account, group, name)
 	if err != nil {

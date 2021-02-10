@@ -8,9 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 )
 
 var rootuser1 = &iam.User{
@@ -88,6 +86,52 @@ var testAccessKeys = map[string][]*iam.AccessKeyMetadata{
 			CreateDate:  aws.Time(testPastTime),
 			Status:      aws.String("InActive"),
 			UserName:    aws.String("user3"),
+		},
+	},
+}
+
+var testUserGroups = map[string][]*iam.Group{
+	"rootuser1": {
+		{
+			Arn:        aws.String(""),
+			CreateDate: aws.Time(testTime),
+			GroupId:    aws.String(""),
+			GroupName:  aws.String("rootGroup1"),
+			Path:       aws.String("/"),
+		},
+		{
+			Arn:        aws.String(""),
+			CreateDate: aws.Time(testTime),
+			GroupId:    aws.String(""),
+			GroupName:  aws.String("rootGroup2"),
+			Path:       aws.String("/"),
+		},
+	},
+	"user1": {
+		{
+			Arn:        aws.String(""),
+			CreateDate: aws.Time(testTime),
+			GroupId:    aws.String(""),
+			GroupName:  aws.String("userGroup1"),
+			Path:       aws.String("/path1/"),
+		},
+	},
+	"user2": {
+		{
+			Arn:        aws.String(""),
+			CreateDate: aws.Time(testTime),
+			GroupId:    aws.String(""),
+			GroupName:  aws.String("userGroup1"),
+			Path:       aws.String("/path1/"),
+		},
+	},
+	"user3": {
+		{
+			Arn:        aws.String(""),
+			CreateDate: aws.Time(testTime),
+			GroupId:    aws.String(""),
+			GroupName:  aws.String("userGroup3"),
+			Path:       aws.String("/path2/"),
 		},
 	},
 }
@@ -170,6 +214,75 @@ func (m *mockIAMClient) DeleteUserWithContext(ctx context.Context, input *iam.De
 	for _, u := range testUsers {
 		if aws.StringValue(input.UserName) == aws.StringValue(u.UserName) {
 			return &iam.DeleteUserOutput{}, nil
+		}
+	}
+
+	return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "Not Found", nil)
+}
+
+func (m *mockIAMClient) ListGroupsForUserWithContext(ctx context.Context, input *iam.ListGroupsForUserInput, opts ...request.Option) (*iam.ListGroupsForUserOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for userName, groups := range testUserGroups {
+		if aws.StringValue(input.UserName) == userName {
+			return &iam.ListGroupsForUserOutput{Groups: groups}, nil
+		}
+	}
+
+	return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "Not Found", nil)
+}
+
+func (m *mockIAMClient) DeleteAccessKeyWithContext(ctx context.Context, input *iam.DeleteAccessKeyInput, opts ...request.Option) (*iam.DeleteAccessKeyOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for userName, keys := range testAccessKeys {
+		if aws.StringValue(input.UserName) == userName {
+			for _, k := range keys {
+				if aws.StringValue(k.AccessKeyId) == aws.StringValue(input.AccessKeyId) {
+					if aws.StringValue(k.Status) != "Inactive" {
+						return nil, awserr.New(iam.ErrCodeDeleteConflictException, "access key must be inactive", nil)
+					}
+					return &iam.DeleteAccessKeyOutput{}, nil
+				}
+			}
+		}
+	}
+
+	return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "Not Found", nil)
+}
+
+func (m *mockIAMClient) CreateAccessKeyWithContext(ctx context.Context, input *iam.CreateAccessKeyInput, opts ...request.Option) (*iam.CreateAccessKeyOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for _, u := range testUsers {
+		if aws.StringValue(input.UserName) == aws.StringValue(u.UserName) {
+			return &iam.CreateAccessKeyOutput{
+				AccessKey: &iam.AccessKey{
+					CreateDate: aws.Time(testTime),
+					UserName:   u.UserName,
+					Status:     aws.String("Active"),
+				},
+			}, nil
+		}
+	}
+
+	return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "Not Found", nil)
+}
+
+func (m *mockIAMClient) TagUserWithContext(ctx context.Context, input *iam.TagUserInput, opts ...request.Option) (*iam.TagUserOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for _, u := range testUsers {
+		if aws.StringValue(input.UserName) == aws.StringValue(u.UserName) {
+			return &iam.TagUserOutput{}, nil
 		}
 	}
 
@@ -691,7 +804,63 @@ func TestIAM_ListGroupsForUser(t *testing.T) {
 		err     error
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty name",
+			args: args{
+				ctx:  context.TODO(),
+				name: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "rootuser1",
+			args: args{
+				ctx:  context.TODO(),
+				name: "rootuser1",
+			},
+			want: []string{"rootGroup1", "rootGroup2"},
+		},
+		{
+			name: "user1",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user1",
+			},
+			want: []string{"userGroup1"},
+		},
+		{
+			name: "user2",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user2",
+			},
+			want: []string{"userGroup1"},
+		},
+		{
+			name: "user3",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user3",
+			},
+			want: []string{"userGroup3"},
+		},
+		{
+			name: "unkown user",
+			args: args{
+				ctx:  context.TODO(),
+				name: "someotheruser",
+			},
+			wantErr: true,
+		},
+		{
+			name: "aws error",
+			args: args{
+				ctx:  context.TODO(),
+				name: "rootuser1",
+			},
+			err:     awserr.New(iam.ErrCodeLimitExceededException, "limit exceeded", nil),
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -709,29 +878,94 @@ func TestIAM_ListGroupsForUser(t *testing.T) {
 }
 
 func TestIAM_CreateAccessKey(t *testing.T) {
-	type fields struct {
-		session *session.Session
-		Service iamiface.IAMAPI
-	}
 	type args struct {
 		ctx  context.Context
 		name string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
+		err     error
 		want    *iam.AccessKey
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty name",
+			args: args{
+				ctx:  context.TODO(),
+				name: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "rootuser1",
+			args: args{
+				ctx:  context.TODO(),
+				name: "rootuser1",
+			},
+			want: &iam.AccessKey{
+				CreateDate: aws.Time(testTime),
+				UserName:   aws.String("rootuser1"),
+				Status:     aws.String("Active"),
+			},
+		},
+		{
+			name: "user1",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user1",
+			},
+			want: &iam.AccessKey{
+				CreateDate: aws.Time(testTime),
+				UserName:   aws.String("user1"),
+				Status:     aws.String("Active"),
+			},
+		},
+		{
+			name: "user2",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user2",
+			},
+			want: &iam.AccessKey{
+				CreateDate: aws.Time(testTime),
+				UserName:   aws.String("user2"),
+				Status:     aws.String("Active"),
+			},
+		},
+		{
+			name: "user3",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user3",
+			},
+			want: &iam.AccessKey{
+				CreateDate: aws.Time(testTime),
+				UserName:   aws.String("user3"),
+				Status:     aws.String("Active"),
+			},
+		},
+		{
+			name: "unknown user",
+			args: args{
+				ctx:  context.TODO(),
+				name: "someotheruser",
+			},
+			wantErr: true,
+		},
+		{
+			name: "aws error",
+			args: args{
+				ctx:  context.TODO(),
+				name: "rootuser1",
+			},
+			err:     awserr.New(iam.ErrCodeLimitExceededException, "limit exceeded", nil),
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := &IAM{
-				session: tt.fields.session,
-				Service: tt.fields.Service,
-			}
+			i := &IAM{Service: newMockIAMClient(t, tt.err)}
 			got, err := i.CreateAccessKey(tt.args.ctx, tt.args.name)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("IAM.CreateAccessKey() error = %v, wantErr %v", err, tt.wantErr)
@@ -745,10 +979,6 @@ func TestIAM_CreateAccessKey(t *testing.T) {
 }
 
 func TestIAM_DeleteAccessKey(t *testing.T) {
-	type fields struct {
-		session *session.Session
-		Service iamiface.IAMAPI
-	}
 	type args struct {
 		ctx   context.Context
 		name  string
@@ -756,18 +986,112 @@ func TestIAM_DeleteAccessKey(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
+		err     error
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empy name and key id",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "",
+				keyId: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "empy name",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "",
+				keyId: "USER1XXXXXXXXX01",
+			},
+			wantErr: true,
+		},
+		{
+			name: "empy key id",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "user1",
+				keyId: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "user1 active key USER1XXXXXXXXX01",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "user1",
+				keyId: "USER1XXXXXXXXX01",
+			},
+			wantErr: true,
+		},
+		{
+			name: "user1 inactive key USER1XXXXXXXXX02",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "user1",
+				keyId: "USER1XXXXXXXXX02",
+			},
+		},
+		{
+			name: "user2 active key USER2XXXXXXXXX01",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "user2",
+				keyId: "USER2XXXXXXXXX01",
+			},
+			wantErr: true,
+		},
+		{
+			name: "user2 inactive key USER2XXXXXXXXX02",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "user2",
+				keyId: "USER2XXXXXXXXX02",
+			},
+		},
+		{
+			name: "user3 active key USER3XXXXXXXXX01",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "user3",
+				keyId: "USER3XXXXXXXXX01",
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown user",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "someotheruser",
+				keyId: "USER1XXXXXXXXX01",
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown key",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "user1",
+				keyId: "xxxxxmissingxxxxx",
+			},
+			wantErr: true,
+		},
+		{
+			name: "aws error",
+			args: args{
+				ctx:   context.TODO(),
+				name:  "user1",
+				keyId: "USER1XXXXXXXXX02",
+			},
+			err:     awserr.New(iam.ErrCodeLimitExceededException, "limit exceeded", nil),
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := &IAM{
-				session: tt.fields.session,
-				Service: tt.fields.Service,
-			}
+			i := &IAM{Service: newMockIAMClient(t, tt.err)}
 			if err := i.DeleteAccessKey(tt.args.ctx, tt.args.name, tt.args.keyId); (err != nil) != tt.wantErr {
 				t.Errorf("IAM.DeleteAccessKey() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -776,10 +1100,6 @@ func TestIAM_DeleteAccessKey(t *testing.T) {
 }
 
 func TestIAM_TagUser(t *testing.T) {
-	type fields struct {
-		session *session.Session
-		Service iamiface.IAMAPI
-	}
 	type args struct {
 		ctx  context.Context
 		name string
@@ -787,18 +1107,127 @@ func TestIAM_TagUser(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
+		err     error
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "empty name and tags",
+			args: args{
+				ctx:  context.TODO(),
+				name: "",
+				tags: nil,
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty name",
+			args: args{
+				ctx:  context.TODO(),
+				name: "",
+				tags: []*iam.Tag{
+					{
+						Key:   aws.String("foo"),
+						Value: aws.String("bar"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty tags",
+			args: args{
+				ctx:  context.TODO(),
+				name: "rootuser1",
+				tags: nil,
+			},
+			wantErr: true,
+		},
+		{
+			name: "rootuser1",
+			args: args{
+				ctx:  context.TODO(),
+				name: "rootuser1",
+				tags: []*iam.Tag{
+					{
+						Key:   aws.String("foo"),
+						Value: aws.String("bar"),
+					},
+				},
+			},
+		},
+		{
+			name: "user1",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user1",
+				tags: []*iam.Tag{
+					{
+						Key:   aws.String("foo"),
+						Value: aws.String("bar"),
+					},
+				},
+			},
+		},
+		{
+			name: "user2",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user2",
+				tags: []*iam.Tag{
+					{
+						Key:   aws.String("foo"),
+						Value: aws.String("bar"),
+					},
+				},
+			},
+		},
+		{
+			name: "user3",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user3",
+				tags: []*iam.Tag{
+					{
+						Key:   aws.String("foo"),
+						Value: aws.String("bar"),
+					},
+				},
+			},
+		},
+		{
+			name: "unknown user",
+			args: args{
+				ctx:  context.TODO(),
+				name: "someotheruser",
+				tags: []*iam.Tag{
+					{
+						Key:   aws.String("foo"),
+						Value: aws.String("bar"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "aws error",
+			args: args{
+				ctx:  context.TODO(),
+				name: "user1",
+				tags: []*iam.Tag{
+					{
+						Key:   aws.String("foo"),
+						Value: aws.String("bar"),
+					},
+				},
+			},
+			err:     awserr.New(iam.ErrCodeLimitExceededException, "limit exceeded", nil),
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := &IAM{
-				session: tt.fields.session,
-				Service: tt.fields.Service,
-			}
+			i := &IAM{Service: newMockIAMClient(t, tt.err)}
 			if err := i.TagUser(tt.args.ctx, tt.args.name, tt.args.tags); (err != nil) != tt.wantErr {
 				t.Errorf("IAM.TagUser() error = %v, wantErr %v", err, tt.wantErr)
 			}
