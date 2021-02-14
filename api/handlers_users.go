@@ -8,6 +8,7 @@ import (
 	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecr-api/iam"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -52,12 +53,10 @@ func (s *server) UsersCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orch := &iamOrchestrator{
-		client: iam.New(
-			iam.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
 
 	groupName, err := orch.prepareAccount(r.Context())
 	if err != nil {
@@ -65,7 +64,7 @@ func (s *server) UsersCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out, err := orch.repositoryUserCreate(r.Context(), name, group, groupName, req)
+	out, err := orch.repositoryUserCreate(r.Context(), name, group, groupName, &req)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -107,12 +106,10 @@ func (s *server) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orch := &iamOrchestrator{
-		client: iam.New(
-			iam.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
 
 	output, err := orch.listRepositoryUsers(r.Context(), group, name)
 	if err != nil {
@@ -156,12 +153,10 @@ func (s *server) UsersShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orch := &iamOrchestrator{
-		client: iam.New(
-			iam.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
 
 	output, err := orch.getRepositoryUser(r.Context(), group, name, user)
 	if err != nil {
@@ -183,8 +178,55 @@ func (s *server) UsersShowHandler(w http.ResponseWriter, r *http.Request) {
 
 // UsersUpdateHandler updates a repository user
 func (s *server) UsersUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	group := vars["group"]
+	name := vars["name"]
+	userName := vars["user"]
+
+	req := RepositoryUserUpdateRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		msg := fmt.Sprintf("cannot decode body into update repository user input: %s", err)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+		return
+	}
+
+	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", account, s.session.RoleName)
+
+	// IAM doesn't support resource tags, so we can't pass the s.orgPolicy here
+	session, err := s.assumeRole(
+		r.Context(),
+		s.session.ExternalID,
+		role,
+		"",
+	)
+	if err != nil {
+		msg := fmt.Sprintf("failed to assume role in account: %s", account)
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
+		return
+	}
+
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
+
+	resp, err := orch.repositoryUserUpdate(r.Context(), name, group, userName, &req)
+	if err != nil {
+		handleError(w, errors.Wrap(err, "failed to update repository user"))
+		return
+	}
+
+	j, err := json.Marshal(resp)
+	if err != nil {
+		handleError(w, errors.Wrap(err, "unable to marshal response"))
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
 }
 
 // UsersDeleteHandler deletes a repository user
@@ -211,12 +253,10 @@ func (s *server) UsersDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orch := &iamOrchestrator{
-		client: iam.New(
-			iam.WithSession(session.Session),
-		),
-		org: s.org,
-	}
+	orch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
 
 	if err := orch.repositoryUserDelete(r.Context(), name, group, userName); err != nil {
 		handleError(w, err)

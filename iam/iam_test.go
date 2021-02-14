@@ -1,6 +1,7 @@
 package iam
 
 import (
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -9,6 +10,7 @@ import (
 )
 
 var testTime = time.Now()
+var testPastTime = time.Unix(rand.Int63n(time.Now().Unix()), 0)
 
 // mockIAMClient is a fake IAM client
 type mockIAMClient struct {
@@ -23,6 +25,7 @@ func newMockIAMClient(t *testing.T, err error) iamiface.IAMAPI {
 		err: err,
 	}
 }
+
 func TestNewSession(t *testing.T) {
 	client := New()
 	to := reflect.TypeOf(client).String()

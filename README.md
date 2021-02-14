@@ -21,6 +21,7 @@ GET    /v1/ecr/{account}/repositories/{group}/{name}/images
 GET    /v1/ecr/{account}/repositories/{group}/{name}/users
 POST   /v1/ecr/{account}/repositories/{group}/{name}/users
 GET    /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
+PUT    /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
 DELETE /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
 ```
 
@@ -418,16 +419,89 @@ GET    /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
             "Value": "myapps"
         },
         {
+            "Key": "ResourceName",
+            "Value": "spindev-00001-myAwesomeRepository-user1"
+        },
+        {
             "Key": "Name",
-            "Value": "spincool-00002/camdenstestrepo01"
+            "Value": "spindev-00001/myAwesomeRepository"
         },
         {
             "Key": "spinup:org",
-            "Value": "spincool"
+            "Value": "spindev"
         },
         {
             "Key": "spinup:spaceid",
-            "Value": "spincool-00002"
+            "Value": "spindev-00001"
+        }
+    ]
+}
+```
+
+#### Update a user
+
+A user's tags and/or its access key can be updated.  The operations are independent,
+and can occur in the same request, or individually.  If the access key is reset,
+a new access key will be returned with the response.
+
+PUT /v1/ecr/{account}/repositories/{group}/{name}/users/{user}
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | updated the user                |
+| **400 Bad Request**           | badly formed request            |
+| **404 Not Found**             | account not found               |
+| **500 Internal Server Error** | a server error occurred         |
+
+##### Example update user request body
+
+```json
+{
+    "resetkey": true,
+    "tags": [
+        {
+            "key": "application",
+            "value": "myapp123"
+        }
+    ],
+}
+```
+
+##### Example update user response
+
+```json
+{
+    "UserName": "user1",
+    "AccessKey": {
+        "AccessKeyId": "AAAAABBBBBCCCCCDDDDDEEEEEFFFFF",
+        "CreateDate": "2021-02-03T22:37:30Z",
+        "SecretAccessKey": "gxyz1234567890abcdefghijklmnop",
+        "Status": "Active",
+        "UserName": "spincool-00001-testrepo1-user1"
+    },
+    "DeletedAccessKeys": [
+        "QQQQQRRRRRSSSSSTTTTTUUUUVVVV"
+    ],
+    "Tags": [
+        {
+            "Key": "application",
+            "Value": "myapp123"
+        },
+        {
+            "Key": "ResourceName",
+            "Value": "spindev-00001-myAwesomeRepository-user1"
+        },
+        {
+            "Key": "Name",
+            "Value": "spindev-00001/myAwesomeRepository"
+        },
+        {
+            "Key": "spinup:org",
+            "Value": "spindev"
+        },
+        {
+            "Key": "spinup:spaceid",
+            "Value": "spindev-00001"
         }
     ]
 }

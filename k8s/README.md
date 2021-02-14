@@ -1,6 +1,6 @@
 # k8s development Readme
 
-The application ships with a basic k8s config in the `k8s/` directory.  There, you will find a `Dockerfile` an `api` helm chart and a `values.yaml` to deploy the pod, service and ingress.  By default, `skaffold` will reference the configuration in `config/config.json`.
+The application ships with a basic k8s config in the `k8s/` directory.  There, you will find an `api` helm chart and a `values.yaml` to deploy the pod, service and ingress.  By default, `skaffold` will use the [paketo buildpacks](https://paketo.io/) and will reference the configuration in `config/config.json`.
 
 ## install docker desktop and enable kubernetes
 

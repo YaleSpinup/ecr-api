@@ -53,7 +53,7 @@ func WithDefaultSessionDuration(t int64) STSOption {
 // AssumeRole assumes the passed role with the given input
 // NB: the combined size of the inlinePolicy and the policy within the policyArns passed is 2048 characters.
 func (s *STS) AssumeRole(ctx context.Context, input *sts.AssumeRoleInput) (*sts.AssumeRoleOutput, error) {
-	if input.RoleArn == nil {
+	if input == nil || aws.StringValue(input.RoleArn) == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
