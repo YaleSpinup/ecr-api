@@ -159,7 +159,6 @@ func (s *server) RepositoriesShowHandler(w http.ResponseWriter, r *http.Request)
 	account := vars["account"]
 	name := vars["name"]
 	group := vars["group"]
-	repository := fmt.Sprintf("%s/%s", group, name)
 
 	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", account, s.session.RoleName)
 
@@ -176,23 +175,18 @@ func (s *server) RepositoriesShowHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	service := ecr.New(
-		ecr.WithSession(session.Session),
+	orch := newEcrOrchestrator(
+		ecr.New(ecr.WithSession(session.Session)),
+		s.org,
 	)
 
-	repo, err := service.GetRepositories(r.Context(), repository)
+	resp, err := orch.repositoryDetails(r.Context(), account, group, name)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, errors.Wrap(err, "failed to get repository details"))
 		return
 	}
 
-	tags, err := service.GetRepositoryTags(r.Context(), aws.StringValue(repo.RepositoryArn))
-	if err != nil {
-		handleError(w, err)
-		return
-	}
-
-	j, err := json.Marshal(repositoryResponseFromECR(repo, tags))
+	j, err := json.Marshal(resp)
 	if err != nil {
 		handleError(w, errors.Wrap(err, "unable to marshal response from the ecr service"))
 		return

@@ -40,12 +40,12 @@ var EcrAdminPolicy = iam.PolicyDocument{
 				"ecr:InitiateLayerUpload",
 				"ecr:BatchCheckLayerAvailability",
 			},
-			Resource: "*",
+			Resource: []string{"*"},
 			Condition: iam.Condition{
-				"StringEquals": iam.ConditionStatement{
-					"aws:ResourceTag/spinup:org":     "${aws:PrincipalTag/spinup:org}",
-					"aws:ResourceTag/spinup:spaceid": "${aws:PrincipalTag/spinup:spaceid}",
-					"aws:ResourceTag/Name":           "${aws:PrincipalTag/ResourceName}",
+				"StringEqualsIgnoreCase": iam.ConditionStatement{
+					"aws:ResourceTag/spinup:org":     []string{"${aws:PrincipalTag/spinup:org}"},
+					"aws:ResourceTag/spinup:spaceid": []string{"${aws:PrincipalTag/spinup:spaceid}"},
+					"aws:ResourceTag/Name":           []string{"${aws:PrincipalTag/ResourceName}"},
 				},
 			},
 		},
@@ -53,7 +53,7 @@ var EcrAdminPolicy = iam.PolicyDocument{
 			Sid:      "AllowDockerLogin",
 			Effect:   "Allow",
 			Action:   []string{"ecr:GetAuthorizationToken"},
-			Resource: "*",
+			Resource: []string{"*"},
 		},
 	},
 }
@@ -119,6 +119,17 @@ func (o *iamOrchestrator) repositoryUserDelete(ctx context.Context, name, group,
 
 	for _, g := range groups {
 		if err := o.client.RemoveUserFromGroup(ctx, userName, g); err != nil {
+			return err
+		}
+	}
+
+	keys, err := o.client.ListAccessKeys(ctx, userName)
+	if err != nil {
+		return err
+	}
+
+	for _, k := range keys {
+		if err := o.client.DeleteAccessKey(ctx, userName, aws.StringValue(k.AccessKeyId)); err != nil {
 			return err
 		}
 	}
@@ -190,12 +201,12 @@ func (o *iamOrchestrator) userCreatePolicyIfMissing(ctx context.Context, name, p
 		return "", err
 	}
 
+	// If we cannot unmarshal the document we received into an iam.PolicyDocument or if
+	// the document doesn't match, let's try to update it.  If unmarshaling fails, we assume
+	// our struct has changed (for example going from Resource string to Resource []string)
 	doc := iam.PolicyDocument{}
-	if err := json.Unmarshal([]byte(d), &doc); err != nil {
-		return "", err
-	}
-
-	if !awsutil.DeepEqual(doc, EcrAdminPolicy) {
+	err = json.Unmarshal([]byte(d), &doc)
+	if err != nil || !awsutil.DeepEqual(doc, EcrAdminPolicy) {
 		log.Warn("policy document is not the same, updating")
 
 		if err := o.client.UpdatePolicy(ctx, aws.StringValue(policy.Arn), ecrAdminPolicyDoc); err != nil {

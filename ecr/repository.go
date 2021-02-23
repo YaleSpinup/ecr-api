@@ -6,7 +6,9 @@ import (
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -159,10 +161,58 @@ func (e *ECR) SetImageScanningConfiguration(ctx context.Context, repoName string
 	})
 
 	if err != nil {
-		return ErrCode("failed to update repository", err)
+		return ErrCode("failed to set image scanning configuration", err)
 	}
 
 	log.Debugf("got output from updating image scanning configuration %+v", out)
 
 	return nil
+}
+
+func (e *ECR) UpdateRepositoryPolicy(ctx context.Context, repoName, repoPolicy string) error {
+	if repoName == "" || repoPolicy == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("updating repository policy for %s: %s", repoName, repoPolicy)
+
+	out, err := e.Service.SetRepositoryPolicyWithContext(ctx, &ecr.SetRepositoryPolicyInput{
+		RepositoryName: aws.String(repoName),
+		PolicyText:     aws.String(repoPolicy),
+	})
+
+	if err != nil {
+		return ErrCode("failed to update repository policy", err)
+	}
+
+	log.Debugf("got output from setting repository policy: %+v", out)
+
+	return nil
+}
+
+func (e *ECR) GetRepositoryPolicy(ctx context.Context, repoName string) (string, error) {
+	if repoName == "" {
+		return "", apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("getting repository policy for %s", repoName)
+
+	out, err := e.Service.GetRepositoryPolicyWithContext(ctx, &ecr.GetRepositoryPolicyInput{
+		RepositoryName: aws.String(repoName),
+	})
+
+	if err != nil {
+		// if the repository doesn't have a policy, return empty policy
+		if aerr, ok := errors.Cause(err).(awserr.Error); ok {
+			if aerr.Code() == ecr.ErrCodeRepositoryPolicyNotFoundException {
+				return "", nil
+			}
+		}
+
+		return "", ErrCode("failed to retrieve repository policy", err)
+	}
+
+	log.Debugf("got output from getting repository policy: %+v", out)
+
+	return aws.StringValue(out.PolicyText), nil
 }

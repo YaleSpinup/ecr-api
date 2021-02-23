@@ -15,11 +15,12 @@ type PolicyDocument struct {
 }
 
 type StatementEntry struct {
-	Sid       string `json:",omitempty"`
-	Effect    string
 	Action    []string
-	Resource  string
 	Condition Condition `json:",omitempty"`
+	Effect    string
+	Principal string   `json:",omitempty"`
+	Resource  []string `json:",omitempty"`
+	Sid       string   `json:",omitempty"`
 }
 
 // Condition maps a condition operator to the condition-key/condition-value statement
@@ -29,7 +30,7 @@ type Condition map[string]ConditionStatement
 
 // ConditionStatement maps condition-key to condition-value
 // ie. "{ "aws:username" : "johndoe" }"
-type ConditionStatement map[string]string
+type ConditionStatement map[string]interface{}
 
 type IAM struct {
 	session *session.Session

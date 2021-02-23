@@ -80,15 +80,3 @@ func TestRetry(t *testing.T) {
 		t.Errorf("unexpected error for successful retry, got %s", err)
 	}
 }
-
-func TestOrgTagAccessPolicy(t *testing.T) {
-	expected := `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["*"],"Resource":"*","Condition":{"StringEquals":{"aws:ResourceTag/spinup:org":"testOrg"}}}]}`
-	out, err := orgTagAccessPolicy("testOrg")
-	if err != nil {
-		t.Errorf("expected nil error, got %s", err)
-	}
-
-	if string(out) != expected {
-		t.Errorf("expected %s, got %s", expected, out)
-	}
-}

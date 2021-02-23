@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/YaleSpinup/ecr-api/common"
-	"github.com/YaleSpinup/ecr-api/iam"
 	"github.com/YaleSpinup/ecr-api/session"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -201,32 +200,4 @@ func retry(attempts int, sleep time.Duration, f func() error) error {
 	}
 
 	return nil
-}
-
-// orgTagAccessPolicy generates the org tag conditional policy to be passed inline when assuming a role
-func orgTagAccessPolicy(org string) (string, error) {
-	log.Debugf("generating org policy document")
-
-	policy := iam.PolicyDocument{
-		Version: "2012-10-17",
-		Statement: []iam.StatementEntry{
-			{
-				Effect:   "Allow",
-				Action:   []string{"*"},
-				Resource: "*",
-				Condition: iam.Condition{
-					"StringEquals": iam.ConditionStatement{
-						"aws:ResourceTag/spinup:org": org,
-					},
-				},
-			},
-		},
-	}
-
-	j, err := json.Marshal(policy)
-	if err != nil {
-		return "", err
-	}
-
-	return string(j), nil
 }

@@ -12,6 +12,35 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// repositoryDetails returns the details about a repository
+func (o *ecrOrchestrator) repositoryDetails(ctx context.Context, account, group, name string) (*RepositoryResponse, error) {
+	repository := fmt.Sprintf("%s/%s", group, name)
+
+	log.Debugf("getting details about repository %s", repository)
+
+	repo, err := o.client.GetRepositories(ctx, repository)
+	if err != nil {
+		return nil, err
+	}
+
+	policy, err := o.client.GetRepositoryPolicy(ctx, repository)
+	if err != nil {
+		return nil, err
+	}
+
+	groups, err := repositoryGroupsFromPolicy(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	tags, err := o.client.GetRepositoryTags(ctx, aws.StringValue(repo.RepositoryArn))
+	if err != nil {
+		return nil, err
+	}
+
+	return repositoryResponseFromECR(repo, groups, tags), nil
+}
+
 // repositoryCreate orchestrates the creation of a repository from the RepositoryCreateRequest
 func (o *ecrOrchestrator) repositoryCreate(ctx context.Context, account, group string, req *RepositoryCreateRequest) (*RepositoryResponse, error) {
 	repository := fmt.Sprintf("%s/%s", group, req.RepositoryName)
@@ -54,14 +83,21 @@ func (o *ecrOrchestrator) repositoryCreate(ctx context.Context, account, group s
 		return nil, err
 	}
 
+	policy, err := repositoryPolicy(req.Groups)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := o.client.UpdateRepositoryPolicy(ctx, repository, policy); err != nil {
+		return nil, err
+	}
+
 	tags, err := o.client.GetRepositoryTags(ctx, aws.StringValue(out.RepositoryArn))
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debugf("got output %+v", out)
-
-	return repositoryResponseFromECR(out, tags), nil
+	return repositoryResponseFromECR(out, req.Groups, tags), nil
 }
 
 // repositoryDelete orchestrates the deletion of a repository
@@ -71,6 +107,16 @@ func (o *ecrOrchestrator) repositoryDelete(ctx context.Context, account, group, 
 	log.Debugf("deleting repository %s", repository)
 
 	repo, err := o.client.GetRepositories(ctx, repository)
+	if err != nil {
+		return nil, err
+	}
+
+	policy, err := o.client.GetRepositoryPolicy(ctx, repository)
+	if err != nil {
+		return nil, err
+	}
+
+	groups, err := repositoryGroupsFromPolicy(policy)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +133,7 @@ func (o *ecrOrchestrator) repositoryDelete(ctx context.Context, account, group, 
 
 	log.Debugf("got output %+v", out)
 
-	return repositoryResponseFromECR(out, tags), nil
+	return repositoryResponseFromECR(out, groups, tags), nil
 }
 
 // repositoryUpdate orchestrates updating a repository
@@ -114,6 +160,17 @@ func (o *ecrOrchestrator) repositoryUpdate(ctx context.Context, account, group, 
 		}
 	}
 
+	if req.Groups != nil {
+		policy, err := repositoryPolicy(req.Groups)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := o.client.UpdateRepositoryPolicy(ctx, repository, policy); err != nil {
+			return nil, err
+		}
+	}
+
 	if req.Tags != nil {
 		if err := o.client.UpdateRepositoryTags(ctx, aws.StringValue(repo.RepositoryArn), toECRTags(req.Tags)); err != nil {
 			return nil, err
@@ -125,10 +182,20 @@ func (o *ecrOrchestrator) repositoryUpdate(ctx context.Context, account, group, 
 		return nil, err
 	}
 
+	policy, err := o.client.GetRepositoryPolicy(ctx, repository)
+	if err != nil {
+		return nil, err
+	}
+
+	groups, err := repositoryGroupsFromPolicy(policy)
+	if err != nil {
+		return nil, err
+	}
+
 	tags, err := o.client.GetRepositoryTags(ctx, aws.StringValue(repo.RepositoryArn))
 	if err != nil {
 		return nil, err
 	}
 
-	return repositoryResponseFromECR(repo, tags), nil
+	return repositoryResponseFromECR(repo, groups, tags), nil
 }

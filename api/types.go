@@ -26,7 +26,6 @@ type RepositoryCreateRequest struct {
 	KmsKeyId string
 
 	// TODO Lifecycle Policy
-	// TODO Repository Policy
 
 	// The setting that determines whether images are scanned after being pushed
 	// to a repository. If set to true, images will be scanned after being pushed.
@@ -40,12 +39,16 @@ type RepositoryCreateRequest struct {
 	// to group the repository into a category (such as project-a/nginx-web-app)
 	RepositoryName string
 
+	// List of additioal group ids that should have access to the repository
+	Groups []string
+
 	// Tags to apply to the repository
 	Tags []*Tag
 }
 
 // RepositoryUpdateRequest is the payload for updating an ECR repository
 type RepositoryUpdateRequest struct {
+	Groups     []string
 	ScanOnPush string
 	Tags       []*Tag
 }
@@ -54,6 +57,7 @@ type RepositoryUpdateRequest struct {
 type RepositoryResponse struct {
 	CreatedAt          time.Time
 	EncryptionType     string
+	Groups             []string
 	KmsKeyId           string
 	ScanOnPush         string
 	ImageTagMutability string
@@ -94,11 +98,12 @@ type Tag struct {
 }
 
 // repositoryResponseFromECR maps ECR response to a common struct
-func repositoryResponseFromECR(r *ecr.Repository, t []*ecr.Tag) *RepositoryResponse {
+func repositoryResponseFromECR(r *ecr.Repository, groups []string, t []*ecr.Tag) *RepositoryResponse {
 	log.Debugf("mapping repository %s", awsutil.Prettify(r))
 
 	repository := RepositoryResponse{
 		CreatedAt:          aws.TimeValue(r.CreatedAt),
+		Groups:             groups,
 		ImageTagMutability: aws.StringValue(r.ImageTagMutability),
 		RegistryId:         aws.StringValue(r.RegistryId),
 		RepositoryArn:      aws.StringValue(r.RepositoryArn),
