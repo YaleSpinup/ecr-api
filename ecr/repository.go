@@ -35,7 +35,7 @@ func (e *ECR) ListRepositories(ctx context.Context) ([]string, error) {
 	log.Info("listing all repositories")
 
 	repos := []string{}
-	err := e.Service.DescribeRepositoriesPagesWithContext(ctx,
+	if err := e.Service.DescribeRepositoriesPagesWithContext(ctx,
 		&ecr.DescribeRepositoriesInput{MaxResults: aws.Int64(1000)},
 		func(page *ecr.DescribeRepositoriesOutput, lastPage bool) bool {
 			for _, r := range page.Repositories {
@@ -43,11 +43,13 @@ func (e *ECR) ListRepositories(ctx context.Context) ([]string, error) {
 			}
 
 			return true
-		})
+		}); err != nil {
+		return nil, ErrCode("failed to list repositories", err)
+	}
 
 	log.Debugf("got list of repostitories %+v", repos)
 
-	return repos, err
+	return repos, nil
 }
 
 // GetRepositories gets a repository by name
