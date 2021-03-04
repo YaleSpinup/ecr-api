@@ -49,6 +49,7 @@ POST `/v1/ecr/{account}/repositories/{group}`
 ```json
 {
     "RepositoryName": "myAwesomeRepository",
+    "Groups": ["spindev-000001", "spindev-000002"],
     "ScanOnPush": "true",
     "Tags": [
         {
@@ -69,6 +70,7 @@ POST `/v1/ecr/{account}/repositories/{group}`
 {
     "CreatedAt": "2020-12-14T15:34:18Z",
     "EncryptionType": "AES256",
+    "Groups": ["spindev-000001", "spindev-000002"],
     "KmsKeyId": "",
     "ScanOnPush": "true",
     "ImageTagMutability": "MUTABLE",
@@ -162,6 +164,7 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}`
 {
     "CreatedAt": "2020-12-14T15:34:18Z",
     "EncryptionType": "AES256",
+    "Groups": ["spindev-000001", "spindev-000002"],
     "KmsKeyId": "",
     "ScanOnPush": "true",
     "ImageTagMutability": "MUTABLE",
@@ -199,6 +202,7 @@ PUT `/1/ecr/{account}/repositories/{group}/{id}`
 ```json
 {
     "ScanOnPush": "false",
+    "Groups": ["spindev-000001", "spindev-000002", "spindev-000003"],
     "Tags": [
         {
             "Key": "Application",
@@ -214,6 +218,7 @@ PUT `/1/ecr/{account}/repositories/{group}/{id}`
 {
     "CreatedAt": "2020-12-14T15:34:18Z",
     "EncryptionType": "AES256",
+    "Groups": ["spindev-000001", "spindev-000002", "spindev-000003"],
     "KmsKeyId": "",
     "ScanOnPush": "false",
     "ImageTagMutability": "MUTABLE",

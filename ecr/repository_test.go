@@ -6,12 +6,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/aws/aws-sdk-go/service/ecr/ecriface"
 	"github.com/pkg/errors"
 )
 
@@ -127,105 +127,779 @@ func (m *mockECRClient) CreateRepositoryWithContext(ctx context.Context, input *
 	}, nil
 }
 
-func TestCreateRepository(t *testing.T) {
-	r := ECR{Service: newmockECRClient(t, nil)}
+func (m *mockECRClient) DescribeRepositoriesPagesWithContext(ctx context.Context, input *ecr.DescribeRepositoriesInput, f func(*ecr.DescribeRepositoriesOutput, bool) bool, opts ...request.Option) error {
+	if m.err != nil {
+		return m.err
+	}
 
-	// nil input
-	if _, err := r.CreateRepository(context.TODO(), nil); err == nil {
-		t.Error("expected error, got nil")
+	_ = f(&ecr.DescribeRepositoriesOutput{Repositories: tRepos}, false)
+
+	return nil
+}
+
+func (m *mockECRClient) DescribeRepositoriesWithContext(ctx context.Context, input *ecr.DescribeRepositoriesInput, opts ...request.Option) (*ecr.DescribeRepositoriesOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	// special case to return more than one repo
+	if len(input.RepositoryNames) == 1 && aws.StringValue(input.RepositoryNames[0]) == "manyreposmatch" {
+		return &ecr.DescribeRepositoriesOutput{Repositories: tRepos}, nil
+	}
+
+	repos := []*ecr.Repository{}
+	for _, r := range tRepos {
+		for _, i := range input.RepositoryNames {
+			if aws.StringValue(i) == aws.StringValue(r.RepositoryName) {
+				repos = append(repos, r)
+			}
+		}
+	}
+
+	return &ecr.DescribeRepositoriesOutput{Repositories: repos}, nil
+}
+
+func (m *mockECRClient) DeleteRepositoryWithContext(ctx context.Context, input *ecr.DeleteRepositoryInput, opts ...request.Option) (*ecr.DeleteRepositoryOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	if !aws.BoolValue(input.Force) {
+		return nil, awserr.New(ecr.ErrCodeRepositoryNotEmptyException, "repository not empty", nil)
+	}
+
+	for _, r := range tRepos {
+		if aws.StringValue(input.RepositoryName) == aws.StringValue(r.RepositoryName) {
+			return &ecr.DeleteRepositoryOutput{}, nil
+		}
+	}
+
+	return nil, awserr.New(ecr.ErrCodeRepositoryNotFoundException, "repository not found", nil)
+}
+
+func (m *mockECRClient) PutImageScanningConfigurationWithContext(ctx context.Context, input *ecr.PutImageScanningConfigurationInput, opts ...request.Option) (*ecr.PutImageScanningConfigurationOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for _, r := range tRepos {
+		if aws.StringValue(input.RepositoryName) == aws.StringValue(r.RepositoryName) {
+			return &ecr.PutImageScanningConfigurationOutput{
+				ImageScanningConfiguration: input.ImageScanningConfiguration,
+				RegistryId:                 r.RegistryId,
+				RepositoryName:             r.RepositoryName,
+			}, nil
+		}
+	}
+
+	return nil, awserr.New(ecr.ErrCodeRepositoryNotFoundException, "repository not found", nil)
+}
+
+func (m *mockECRClient) SetRepositoryPolicyWithContext(ctx context.Context, input *ecr.SetRepositoryPolicyInput, opts ...request.Option) (*ecr.SetRepositoryPolicyOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for _, r := range tRepos {
+		if aws.StringValue(input.RepositoryName) == aws.StringValue(r.RepositoryName) {
+			return &ecr.SetRepositoryPolicyOutput{
+				PolicyText:     input.PolicyText,
+				RegistryId:     r.RegistryId,
+				RepositoryName: r.RepositoryName,
+			}, nil
+		}
+	}
+
+	return nil, awserr.New(ecr.ErrCodeRepositoryNotFoundException, "repository not found", nil)
+}
+
+func TestECR_CreateRepository(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx   context.Context
+		input *ecr.CreateRepositoryInput
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *ecr.Repository
+		wantErr bool
+	}{
+		{
+			name: "",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:   context.TODO(),
+				input: nil,
+			},
+			wantErr: true,
+		},
+		{
+			name: "aws error",
+			fields: fields{
+				Service: newmockECRClient(t, awserr.New(ecr.ErrCodeEmptyUploadException, "bad request", nil)),
+			},
+			args: args{
+				ctx:   context.TODO(),
+				input: &ecr.CreateRepositoryInput{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "non-aws error",
+			fields: fields{
+				Service: newmockECRClient(t, errors.New("things blowing up!")),
+			},
+			args: args{
+				ctx:   context.TODO(),
+				input: &ecr.CreateRepositoryInput{},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, repo := range tRepos {
-		t.Logf("testing create repository %s", aws.StringValue(repo.RepositoryName))
-
-		out, err := r.CreateRepository(context.TODO(), &ecr.CreateRepositoryInput{
-			EncryptionConfiguration:    repo.EncryptionConfiguration,
-			ImageScanningConfiguration: repo.ImageScanningConfiguration,
-			ImageTagMutability:         repo.ImageTagMutability,
-			RepositoryName:             repo.RepositoryName,
+		tests = append(tests, struct {
+			name    string
+			fields  fields
+			args    args
+			want    *ecr.Repository
+			wantErr bool
+		}{
+			name: aws.StringValue(repo.RepositoryName),
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx: context.TODO(),
+				input: &ecr.CreateRepositoryInput{
+					EncryptionConfiguration:    repo.EncryptionConfiguration,
+					ImageScanningConfiguration: repo.ImageScanningConfiguration,
+					ImageTagMutability:         repo.ImageTagMutability,
+					RepositoryName:             repo.RepositoryName,
+				},
+			},
+			want: repo,
 		})
-
-		if err != nil {
-			t.Errorf("expected nil error, got %s", err)
-		}
-
-		if !awsutil.DeepEqual(out, repo) {
-			t.Errorf("expected %s, got %s", awsutil.Prettify(repo), awsutil.Prettify(out))
-		}
 	}
 
-	r.Service.(*mockECRClient).err = awserr.New(ecr.ErrCodeEmptyUploadException, "bad request", nil)
-	_, err := r.CreateRepository(context.TODO(), &ecr.CreateRepositoryInput{})
-	if aerr, ok := err.(apierror.Error); ok {
-		if aerr.Code != apierror.ErrBadRequest {
-			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
-		}
-	} else {
-		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-	}
-
-	r.Service.(*mockECRClient).err = awserr.New(ecr.ErrCodeServerException, "internal error", nil)
-	_, err = r.CreateRepository(context.TODO(), &ecr.CreateRepositoryInput{})
-	if aerr, ok := err.(apierror.Error); ok {
-		if aerr.Code != apierror.ErrInternalError {
-			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
-		}
-	} else {
-		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-	}
-
-	r.Service.(*mockECRClient).err = awserr.New(ecr.ErrCodeRepositoryNotFoundException, "not found", nil)
-	_, err = r.CreateRepository(context.TODO(), &ecr.CreateRepositoryInput{})
-	if aerr, ok := err.(apierror.Error); ok {
-		if aerr.Code != apierror.ErrNotFound {
-			t.Errorf("expected error code %s, got: %s", apierror.ErrNotFound, aerr.Code)
-		}
-	} else {
-		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-	}
-
-	r.Service.(*mockECRClient).err = awserr.New(ecr.ErrCodeRepositoryAlreadyExistsException, "in use", nil)
-	_, err = r.CreateRepository(context.TODO(), &ecr.CreateRepositoryInput{})
-	if aerr, ok := err.(apierror.Error); ok {
-		if aerr.Code != apierror.ErrConflict {
-			t.Errorf("expected error code %s, got: %s", apierror.ErrConflict, aerr.Code)
-		}
-	} else {
-		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-	}
-
-	// test non-aws error
-	r.Service.(*mockECRClient).err = errors.New("things blowing up!")
-	_, err = r.CreateRepository(context.TODO(), &ecr.CreateRepositoryInput{})
-	if aerr, ok := err.(apierror.Error); ok {
-		if aerr.Code != apierror.ErrInternalError {
-			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
-		}
-	} else {
-		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			got, err := e.CreateRepository(tt.args.ctx, tt.args.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECR.CreateRepository() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECR.CreateRepository() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func TestListRepositories(t *testing.T) {
-	t.Log("todo")
+func TestECR_ListRepositories(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx context.Context
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "list repos",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{ctx: context.TODO()},
+			want: []string{"carols/12DaysOfChristmas", "carols/SilentNight", "carols/FrostyTheSnowman", "carols/LittleDrummerBoy", "reindeer/rudolph", "reindeer/dasher", "reindeer/dancer"},
+		},
+		{
+			name: "aws error",
+			fields: fields{
+				Service: newmockECRClient(t, awserr.New(ecr.ErrCodeEmptyUploadException, "bad request", nil)),
+			},
+			args:    args{ctx: context.TODO()},
+			wantErr: true,
+		},
+		{
+			name: "non-aws error",
+			fields: fields{
+				Service: newmockECRClient(t, errors.New("things blowing up!")),
+			},
+			args:    args{ctx: context.TODO()},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			got, err := e.ListRepositories(tt.args.ctx)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECR.ListRepositories() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECR.ListRepositories() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
-func TestDeleteRepository(t *testing.T) {
-	t.Log("todo")
+func TestECR_GetRepositories(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx      context.Context
+		repoName string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *ecr.Repository
+		wantErr bool
+	}{
+		{
+			name: "empty input",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown repository",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: "somemissingrepo",
+			},
+			wantErr: true,
+		},
+		{
+			name: "return many repositories",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: "manyreposmatch",
+			},
+			wantErr: true,
+		},
+		{
+			name: "aws error",
+			fields: fields{
+				Service: newmockECRClient(t, awserr.New(ecr.ErrCodeEmptyUploadException, "bad request", nil)),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: "carols/JingleBells",
+			},
+			wantErr: true,
+		},
+		{
+			name: "non-aws error",
+			fields: fields{
+				Service: newmockECRClient(t, errors.New("things blowing up!")),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: "carols/JingleBells",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, repo := range tRepos {
+		tests = append(tests, struct {
+			name    string
+			fields  fields
+			args    args
+			want    *ecr.Repository
+			wantErr bool
+		}{
+			name: aws.StringValue(repo.RepositoryName),
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: aws.StringValue(repo.RepositoryName),
+			},
+			want: repo,
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			got, err := e.GetRepositories(tt.args.ctx, tt.args.repoName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECR.GetRepositories() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECR.GetRepositories() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
-func TestGetRepositoryTags(t *testing.T) {
-	t.Log("todo")
+func TestECR_DeleteRepository(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx      context.Context
+		repoName string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *ecr.Repository
+		wantErr bool
+	}{
+		{
+			name: "empty input",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown repository",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: "somemissingrepo",
+			},
+			wantErr: true,
+		},
+		{
+			name: "aws error",
+			fields: fields{
+				Service: newmockECRClient(t, awserr.New(ecr.ErrCodeEmptyUploadException, "bad request", nil)),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: "carols/JingleBells",
+			},
+			wantErr: true,
+		},
+		{
+			name: "non-aws error",
+			fields: fields{
+				Service: newmockECRClient(t, errors.New("things blowing up!")),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: "carols/JingleBells",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, repo := range tRepos {
+		tests = append(tests, struct {
+			name    string
+			fields  fields
+			args    args
+			want    *ecr.Repository
+			wantErr bool
+		}{
+			name: aws.StringValue(repo.RepositoryName),
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:      context.TODO(),
+				repoName: aws.StringValue(repo.RepositoryName),
+			},
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			got, err := e.DeleteRepository(tt.args.ctx, tt.args.repoName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECR.DeleteRepository() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECR.DeleteRepository() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
-func TestUpdateRepositoryTags(t *testing.T) {
-	t.Log("todo")
+func TestECR_GetRepositoryTags(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx     context.Context
+		repoArn string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []*ecr.Tag
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			got, err := e.GetRepositoryTags(tt.args.ctx, tt.args.repoArn)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECR.GetRepositoryTags() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECR.GetRepositoryTags() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
-func TestSetImageScanningConfiguration(t *testing.T) {
-	t.Log("todo")
+func TestECR_UpdateRepositoryTags(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx     context.Context
+		repoArn string
+		tags    []*ecr.Tag
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			if err := e.UpdateRepositoryTags(tt.args.ctx, tt.args.repoArn, tt.args.tags); (err != nil) != tt.wantErr {
+				t.Errorf("ECR.UpdateRepositoryTags() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
-func TestGetRepositories(t *testing.T) {
-	t.Log("todo")
+func TestECR_SetImageScanningConfiguration(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx        context.Context
+		repoName   string
+		scanOnPush bool
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "empty input",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   "",
+				scanOnPush: true,
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown repository",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   "somemissingrepo",
+				scanOnPush: true,
+			},
+			wantErr: true,
+		},
+		{
+			name: "aws error",
+			fields: fields{
+				Service: newmockECRClient(t, awserr.New(ecr.ErrCodeEmptyUploadException, "bad request", nil)),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   "carols/JingleBells",
+				scanOnPush: true,
+			},
+			wantErr: true,
+		},
+		{
+			name: "non-aws error",
+			fields: fields{
+				Service: newmockECRClient(t, errors.New("things blowing up!")),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   "carols/JingleBells",
+				scanOnPush: true,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, repo := range tRepos {
+		tests = append(tests, struct {
+			name    string
+			fields  fields
+			args    args
+			wantErr bool
+		}{
+			name: aws.StringValue(repo.RepositoryName),
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   aws.StringValue(repo.RepositoryName),
+				scanOnPush: true,
+			},
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			if err := e.SetImageScanningConfiguration(tt.args.ctx, tt.args.repoName, tt.args.scanOnPush); (err != nil) != tt.wantErr {
+				t.Errorf("ECR.SetImageScanningConfiguration() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestECR_UpdateRepositoryPolicy(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx        context.Context
+		repoName   string
+		repoPolicy string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "empty repoName",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   "",
+				repoPolicy: "{}",
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty policy",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   "carols/JingleBells",
+				repoPolicy: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown repository",
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   "somemissingrepo",
+				repoPolicy: "{}",
+			},
+			wantErr: true,
+		},
+		{
+			name: "aws error",
+			fields: fields{
+				Service: newmockECRClient(t, awserr.New(ecr.ErrCodeEmptyUploadException, "bad request", nil)),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   "carols/JingleBells",
+				repoPolicy: "{}",
+			},
+			wantErr: true,
+		},
+		{
+			name: "non-aws error",
+			fields: fields{
+				Service: newmockECRClient(t, errors.New("things blowing up!")),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   "carols/JingleBells",
+				repoPolicy: "{}",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, repo := range tRepos {
+		tests = append(tests, struct {
+			name    string
+			fields  fields
+			args    args
+			wantErr bool
+		}{
+			name: aws.StringValue(repo.RepositoryName),
+			fields: fields{
+				Service: newmockECRClient(t, nil),
+			},
+			args: args{
+				ctx:        context.TODO(),
+				repoName:   aws.StringValue(repo.RepositoryName),
+				repoPolicy: "{}",
+			},
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			if err := e.UpdateRepositoryPolicy(tt.args.ctx, tt.args.repoName, tt.args.repoPolicy); (err != nil) != tt.wantErr {
+				t.Errorf("ECR.UpdateRepositoryPolicy() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestECR_GetRepositoryPolicy(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx      context.Context
+		repoName string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			got, err := e.GetRepositoryPolicy(tt.args.ctx, tt.args.repoName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECR.GetRepositoryPolicy() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ECR.GetRepositoryPolicy() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

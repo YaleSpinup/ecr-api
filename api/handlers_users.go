@@ -39,13 +39,18 @@ func (s *server) UsersCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", account, s.session.RoleName)
+	policy, err := s.repositoryUserCreatePolicy()
+	if err != nil {
+		handleError(w, apierror.New(apierror.ErrInternalError, "failed to generate policy", err))
+		return
+	}
 
 	// IAM doesn't support resource tags, so we can't pass the s.orgPolicy here
 	session, err := s.assumeRole(
 		r.Context(),
 		s.session.ExternalID,
 		role,
-		"",
+		policy,
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
@@ -99,6 +104,7 @@ func (s *server) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 		s.session.ExternalID,
 		role,
 		"",
+		"arn:aws:iam::aws:policy/IAMReadOnlyAccess",
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
@@ -146,6 +152,7 @@ func (s *server) UsersShowHandler(w http.ResponseWriter, r *http.Request) {
 		s.session.ExternalID,
 		role,
 		"",
+		"arn:aws:iam::aws:policy/IAMReadOnlyAccess",
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
@@ -193,13 +200,18 @@ func (s *server) UsersUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", account, s.session.RoleName)
+	policy, err := s.repositoryUserUpdatePolicy()
+	if err != nil {
+		handleError(w, apierror.New(apierror.ErrInternalError, "failed to generate policy", err))
+		return
+	}
 
 	// IAM doesn't support resource tags, so we can't pass the s.orgPolicy here
 	session, err := s.assumeRole(
 		r.Context(),
 		s.session.ExternalID,
 		role,
-		"",
+		policy,
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
@@ -239,13 +251,18 @@ func (s *server) UsersDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	userName := vars["user"]
 
 	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", account, s.session.RoleName)
+	policy, err := s.repositoryUserDeletePolicy()
+	if err != nil {
+		handleError(w, apierror.New(apierror.ErrInternalError, "failed to generate policy", err))
+		return
+	}
 
 	// IAM doesn't support resource tags, so we can't pass the s.orgPolicy here
 	session, err := s.assumeRole(
 		r.Context(),
 		s.session.ExternalID,
 		role,
-		"",
+		policy,
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
