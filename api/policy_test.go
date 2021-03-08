@@ -52,7 +52,7 @@ func Test_server_repositoryUserCreatePolicy(t *testing.T) {
 			fields: fields{
 				org: "testOrg",
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Action":["iam:CreatePolicy","iam:UntagUser","iam:GetPolicyVersion","iam:AddUserToGroup","iam:GetPolicy","iam:ListAttachedGroupPolicies","iam:ListGroupPolicies","iam:AttachGroupPolicy","iam:GetUser","iam:CreatePolicyVersion","iam:CreateUser","iam:GetGroup","iam:TagUser"],"Effect":"Allow","Resource":["arn:aws:iam::*:group/spinup/testOrg/*","arn:aws:iam::*:policy/spinup/testOrg/*","arn:aws:iam::*:user/spinup/testOrg/*"],"Sid":"CreateRepositoryUser"},{"Action":["iam:ListPolicies"],"Effect":"Allow","Resource":["*"],"Sid":"ListRepositoryUserPolicies"}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Action":["iam:CreatePolicy","iam:UntagUser","iam:GetPolicyVersion","iam:AddUserToGroup","iam:GetPolicy","iam:ListAttachedGroupPolicies","iam:ListGroupPolicies","iam:AttachGroupPolicy","iam:GetUser","iam:CreatePolicyVersion","iam:CreateUser","iam:GetGroup","iam:CreateGroup","iam:TagUser"],"Effect":"Allow","Resource":["arn:aws:iam::*:group/*","arn:aws:iam::*:policy/spinup/testOrg/*","arn:aws:iam::*:user/spinup/testOrg/*"],"Sid":"CreateRepositoryUser"},{"Action":["iam:ListPolicies"],"Effect":"Allow","Resource":["*"],"Sid":"ListRepositoryUserPolicies"}]}`,
 		},
 	}
 	for _, tt := range tests {
