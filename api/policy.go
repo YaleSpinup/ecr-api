@@ -56,10 +56,11 @@ func (s *server) repositoryUserCreatePolicy() (string, error) {
 					"iam:CreatePolicyVersion",
 					"iam:CreateUser",
 					"iam:GetGroup",
+					"iam:CreateGroup",
 					"iam:TagUser",
 				},
 				Resource: []string{
-					fmt.Sprintf("arn:aws:iam::*:group/spinup/%s/*", s.org),
+					"arn:aws:iam::*:group/*",
 					fmt.Sprintf("arn:aws:iam::*:policy/spinup/%s/*", s.org),
 					fmt.Sprintf("arn:aws:iam::*:user/spinup/%s/*", s.org),
 				},
