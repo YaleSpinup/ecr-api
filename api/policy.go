@@ -165,10 +165,10 @@ func repositoryPolicy(groups []string) (string, error) {
 					"ecr:GetDownloadUrlForLayer",
 					"ecr:BatchGetImage",
 				},
-				Principal: "*",
+				Principal: iam.Principal{"AWS": iam.Value{"*"}},
 				Condition: iam.Condition{
 					"StringEqualsIgnoreCase": iam.ConditionStatement{
-						"aws:PrincipalTag/spinup:org":     "${aws:ResourceTag/spinup:org}",
+						"aws:PrincipalTag/spinup:org":     []string{"${aws:ResourceTag/spinup:org}"},
 						"aws:PrincipalTag/spinup:spaceid": groupConditions,
 					},
 				},
@@ -221,29 +221,14 @@ func repositoryGroupsFromPolicy(policy string) ([]string, error) {
 				continue
 			}
 
-			// should be a list of strings unless there are no
-			// additional groups added to the list
-			list, ok := v.([]interface{})
-			if !ok {
-				log.Debugf("resource policy condition value '%+v' is not a list, continuing", v)
-				continue
-			}
-
 			// collect the spaceid tags and add to the list of groups
-			for _, g := range list {
-				// values should all be strings
-				gv, ok := g.(string)
-				if !ok {
-					log.Warnf("tag value '%v' is not a string", g)
-					continue
-				}
-
+			for _, g := range v {
 				// ignore the "same space" group
-				if gv == "${aws:ResourceTag/spinup:spaceid}" {
+				if g == "${aws:ResourceTag/spinup:spaceid}" {
 					continue
 				}
 
-				groups = append(groups, gv)
+				groups = append(groups, g)
 			}
 		}
 	}

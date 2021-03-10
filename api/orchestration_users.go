@@ -208,14 +208,10 @@ func (o *iamOrchestrator) userCreatePolicyIfMissing(ctx context.Context, name, p
 	if err := json.Unmarshal([]byte(d), &doc); err != nil {
 		log.Warnf("error getting policy document: %s, updating", err)
 		updatePolicy = true
+	} else if !iam.PolicyDeepEqual(doc, EcrAdminPolicy) {
+		log.Warn("policy document is not the same, updating")
+		updatePolicy = true
 	}
-	// } else if !reflect.DeepEqual(doc, EcrAdminPolicy) {
-	// 	log.Warn("policy document is not the same, updating")
-	// 	updatePolicy = true
-	// }
-
-	// log.Debugf("Current policy: %s", awsutil.Prettify(doc))
-	// log.Debugf("New policy: %s", awsutil.Prettify(EcrAdminPolicy))
 
 	if updatePolicy {
 		if err := o.client.UpdatePolicy(ctx, aws.StringValue(policy.Arn), ecrAdminPolicyDoc); err != nil {
