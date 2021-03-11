@@ -237,3 +237,28 @@ func repositoryGroupsFromPolicy(policy string) ([]string, error) {
 
 	return groups, nil
 }
+
+func (s *server) repositoryImageDeletePolicy(account, repoName string) (string, error) {
+	policy := &iam.PolicyDocument{
+		Version: "2012-10-17",
+		Statement: []iam.StatementEntry{
+			{
+				Sid:    "DeleteRepositoryImage",
+				Effect: "Allow",
+				Action: []string{
+					"ecr:BatchDeleteImage",
+				},
+				Resource: []string{
+					fmt.Sprintf("arn:aws:ecr:*:%s:repository/%s", account, repoName),
+				},
+			},
+		},
+	}
+
+	j, err := json.Marshal(policy)
+	if err != nil {
+		return "", err
+	}
+
+	return string(j), nil
+}

@@ -18,6 +18,7 @@ DELETE /v1/ecr/{account}/repositories/{group}/{name}
 
 GET    /v1/ecr/{account}/repositories/{group}/{name}/images
 GET    /v1/ecr/{account}/repositories/{group}/{name}/images/{tag}
+DELETE /v1/ecr/{account}/repositories/{group}/{name}/images/{tag}
 
 GET    /v1/ecr/{account}/repositories/{group}/{name}/users
 POST   /v1/ecr/{account}/repositories/{group}/{name}/users
@@ -311,8 +312,6 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
 
 #### Get details about an image tag
 
-This gets the image scanning results for an image tag.
-
 GET `/v1/ecr/{account}/repositories/{group}/{id}/images/{tag}`
 
 | Response Code                 | Definition                       |
@@ -387,6 +386,34 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}/images/{tag}`
     ],
     "ImageScanCompletedAt": "2021-03-11T17:27:30Z",
     "VulnerabilitySourceUpdatedAt": "2021-03-11T07:49:36Z"
+}
+```
+
+#### Delete an image tag
+
+This gets the image scanning results for an image tag.
+
+DELETE `/v1/ecr/{account}/repositories/{group}/{id}/images/{tag}`
+
+| Response Code                 | Definition                       |
+| ----------------------------- | ---------------------------------|
+| **200 OK**                    | successfully deleted tag         |
+| **400 Bad Request**           | badly formed request             |
+| **403 Forbidden**             | bad token or fail to assume role |
+| **404 Not Found**             | account or repository not found  |
+| **500 Internal Server Error** | a server error occurred          |
+
+##### Example response body
+
+```json
+{
+    "Failures": [],
+    "ImageIds": [
+        {
+            "ImageDigest": "sha256:9da375ff906516f880ab34384c938e02619c4d19655f4ceb815f6bd122a06a68",
+            "ImageTag": "v1"
+        }
+    ]
 }
 ```
 

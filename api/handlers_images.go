@@ -87,13 +87,64 @@ func (s *server) RepositoriesImageTagShowHandler(w http.ResponseWriter, r *http.
 		ecr.WithSession(session.Session),
 	)
 
-	images, err := service.GetImageScanFindings(r.Context(), repository, tag)
+	findings, err := service.GetImageScanFindings(r.Context(), repository, tag)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	j, err := json.Marshal(images)
+	j, err := json.Marshal(findings)
+	if err != nil {
+		handleError(w, errors.Wrap(err, "unable to marshal response from the ecr service"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
+}
+
+// RepositoriesImageTagDeleteHandler deletes an image tag
+func (s *server) RepositoriesImageTagDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	name := vars["name"]
+	group := vars["group"]
+	tag := vars["tag"]
+
+	repository := fmt.Sprintf("%s/%s", group, name)
+
+	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", account, s.session.RoleName)
+	policy, err := s.repositoryImageDeletePolicy(account, repository)
+	if err != nil {
+		handleError(w, apierror.New(apierror.ErrInternalError, "failed to generate policy", err))
+		return
+	}
+
+	session, err := s.assumeRole(
+		r.Context(),
+		s.session.ExternalID,
+		role,
+		policy,
+	)
+	if err != nil {
+		msg := fmt.Sprintf("failed to assume role in account: %s", account)
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
+		return
+	}
+
+	service := ecr.New(
+		ecr.WithSession(session.Session),
+	)
+
+	output, err := service.DeleteImageTag(r.Context(), repository, tag)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	j, err := json.Marshal(output)
 	if err != nil {
 		handleError(w, errors.Wrap(err, "unable to marshal response from the ecr service"))
 		return
