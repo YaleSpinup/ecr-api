@@ -17,6 +17,7 @@ PUT    /v1/ecr/{account}/repositories/{group}/{name}
 DELETE /v1/ecr/{account}/repositories/{group}/{name}
 
 GET    /v1/ecr/{account}/repositories/{group}/{name}/images
+GET    /v1/ecr/{account}/repositories/{group}/{name}/images/{tag}
 
 GET    /v1/ecr/{account}/repositories/{group}/{name}/users
 POST   /v1/ecr/{account}/repositories/{group}/{name}/users
@@ -306,6 +307,87 @@ GET `/v1/ecr/{account}/repositories/{group}/{id}/images`
         "RepositoryName": "spindev-00001/myAwesomeRepository"
     }
 ]
+```
+
+#### Get details about an image tag
+
+This gets the image scanning results for an image tag.
+
+GET `/v1/ecr/{account}/repositories/{group}/{id}/images/{tag}`
+
+| Response Code                 | Definition                       |
+| ----------------------------- | ---------------------------------|
+| **200 OK**                    | return scanning results          |
+| **400 Bad Request**           | badly formed request             |
+| **403 Forbidden**             | bad token or fail to assume role |
+| **404 Not Found**             | account or repository not found  |
+| **500 Internal Server Error** | a server error occurred          |
+
+##### Example response body
+
+```json
+{
+    "FindingSeverityCounts": {
+        "HIGH": 1,
+        "INFORMATIONAL": 61,
+        "LOW": 17,
+        "MEDIUM": 22,
+        "UNDEFINED": 5
+    },
+    "Findings": [
+        {
+            "Attributes": [
+                {
+                    "Key": "package_version",
+                    "Value": "2.28-10"
+                },
+                {
+                    "Key": "package_name",
+                    "Value": "glibc"
+                },
+                {
+                    "Key": "CVSS2_VECTOR",
+                    "Value": "AV:N/AC:M/Au:N/C:N/I:N/A:C"
+                },
+                {
+                    "Key": "CVSS2_SCORE",
+                    "Value": "7.1"
+                }
+            ],
+            "Description": "The iconv feature in the GNU C Library (aka glibc or libc6) through 2.32, when processing invalid multi-byte input sequences in the EUC-KR encoding, may have a buffer over-read.",
+            "Name": "CVE-2019-25013",
+            "Severity": "HIGH",
+            "Uri": "https://security-tracker.debian.org/tracker/CVE-2019-25013"
+        },
+        {
+            "Attributes": [
+                {
+                    "Key": "package_version",
+                    "Value": "7.64.0-4+deb10u1"
+                },
+                {
+                    "Key": "package_name",
+                    "Value": "curl"
+                },
+                {
+                    "Key": "CVSS2_VECTOR",
+                    "Value": "AV:N/AC:L/Au:N/C:N/I:P/A:N"
+                },
+                {
+                    "Key": "CVSS2_SCORE",
+                    "Value": "5"
+                }
+            ],
+            "Description": "curl 7.41.0 through 7.73.0 is vulnerable to an improper check for certificate revocation due to insufficient verification of the OCSP response.",
+            "Name": "CVE-2020-8286",
+            "Severity": "MEDIUM",
+            "Uri": "https://security-tracker.debian.org/tracker/CVE-2020-8286"
+        },
+        ...
+    ],
+    "ImageScanCompletedAt": "2021-03-11T17:27:30Z",
+    "VulnerabilitySourceUpdatedAt": "2021-03-11T07:49:36Z"
+}
 ```
 
 ### Users
