@@ -9,7 +9,6 @@ import (
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 
 	"github.com/YaleSpinup/ecr-api/iam"
 	log "github.com/sirupsen/logrus"
@@ -43,9 +42,9 @@ var EcrAdminPolicy = iam.PolicyDocument{
 			Resource: []string{"*"},
 			Condition: iam.Condition{
 				"StringEqualsIgnoreCase": iam.ConditionStatement{
+					"aws:ResourceTag/Name":           []string{"${aws:PrincipalTag/ResourceName}"},
 					"aws:ResourceTag/spinup:org":     []string{"${aws:PrincipalTag/spinup:org}"},
 					"aws:ResourceTag/spinup:spaceid": []string{"${aws:PrincipalTag/spinup:spaceid}"},
-					"aws:ResourceTag/Name":           []string{"${aws:PrincipalTag/ResourceName}"},
 				},
 			},
 		},
@@ -204,11 +203,17 @@ func (o *iamOrchestrator) userCreatePolicyIfMissing(ctx context.Context, name, p
 	// If we cannot unmarshal the document we received into an iam.PolicyDocument or if
 	// the document doesn't match, let's try to update it.  If unmarshaling fails, we assume
 	// our struct has changed (for example going from Resource string to Resource []string)
+	var updatePolicy bool
 	doc := iam.PolicyDocument{}
-	err = json.Unmarshal([]byte(d), &doc)
-	if err != nil || !awsutil.DeepEqual(doc, EcrAdminPolicy) {
+	if err := json.Unmarshal([]byte(d), &doc); err != nil {
+		log.Warnf("error getting policy document: %s, updating", err)
+		updatePolicy = true
+	} else if !iam.PolicyDeepEqual(doc, EcrAdminPolicy) {
 		log.Warn("policy document is not the same, updating")
+		updatePolicy = true
+	}
 
+	if updatePolicy {
 		if err := o.client.UpdatePolicy(ctx, aws.StringValue(policy.Arn), ecrAdminPolicyDoc); err != nil {
 			return "", err
 		}
@@ -222,8 +227,7 @@ func (o *iamOrchestrator) userCreatePolicyIfMissing(ctx context.Context, name, p
 func (o *iamOrchestrator) userCreateGroupIfMissing(ctx context.Context, name, path, policyArn string) error {
 	log.Infof("creating group %s in %s and assigning policy %s if missing", name, path, policyArn)
 
-	_, err := o.client.GetGroupWithPath(ctx, name, path)
-	if err != nil {
+	if _, err := o.client.GetGroupWithPath(ctx, name, path); err != nil {
 		if aerr, ok := err.(apierror.Error); ok && aerr.Code == apierror.ErrNotFound {
 			log.Infof("group %s not found, creating", name)
 

@@ -20,7 +20,7 @@ func Test_orgTagAccessPolicy(t *testing.T) {
 			args: args{
 				org: "testOrg",
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Action":["*"],"Condition":{"StringEquals":{"aws:ResourceTag/spinup:org":["testOrg"]}},"Effect":"Allow","Resource":["*"]}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["*"],"Resource":["*"],"Condition":{"StringEquals":{"aws:ResourceTag/spinup:org":["testOrg"]}}}]}`,
 		},
 	}
 	for _, tt := range tests {
@@ -52,7 +52,7 @@ func Test_server_repositoryUserCreatePolicy(t *testing.T) {
 			fields: fields{
 				org: "testOrg",
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Action":["iam:CreatePolicy","iam:UntagUser","iam:GetPolicyVersion","iam:AddUserToGroup","iam:GetPolicy","iam:ListAttachedGroupPolicies","iam:ListGroupPolicies","iam:AttachGroupPolicy","iam:GetUser","iam:CreatePolicyVersion","iam:CreateUser","iam:GetGroup","iam:TagUser"],"Effect":"Allow","Resource":["arn:aws:iam::*:group/spinup/testOrg/*","arn:aws:iam::*:policy/spinup/testOrg/*","arn:aws:iam::*:user/spinup/testOrg/*"],"Sid":"CreateRepositoryUser"},{"Action":["iam:ListPolicies"],"Effect":"Allow","Resource":["*"],"Sid":"ListRepositoryUserPolicies"}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"CreateRepositoryUser","Effect":"Allow","Action":["iam:CreatePolicy","iam:UntagUser","iam:GetPolicyVersion","iam:AddUserToGroup","iam:GetPolicy","iam:ListAttachedGroupPolicies","iam:ListGroupPolicies","iam:AttachGroupPolicy","iam:GetUser","iam:CreatePolicyVersion","iam:CreateUser","iam:GetGroup","iam:CreateGroup","iam:TagUser"],"Resource":["arn:aws:iam::*:group/*","arn:aws:iam::*:policy/spinup/testOrg/*","arn:aws:iam::*:user/spinup/testOrg/*"]},{"Sid":"ListRepositoryUserPolicies","Effect":"Allow","Action":["iam:ListPolicies"],"Resource":["*"]}]}`,
 		},
 	}
 	for _, tt := range tests {
@@ -87,7 +87,7 @@ func Test_server_repositoryUserDeletePolicy(t *testing.T) {
 			fields: fields{
 				org: "testOrg",
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Action":["iam:DeleteAccessKey","iam:RemoveUserFromGroup","iam:ListAccessKeys","iam:ListGroupsForUser","iam:DeleteUser","iam:GetUser"],"Effect":"Allow","Resource":["arn:aws:iam::*:user/spinup/testOrg/*","arn:aws:iam::*:group/spinup/testOrg/SpinupECRAdminGroup-testOrg"],"Sid":"DeleteRepositoryUser"}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"DeleteRepositoryUser","Effect":"Allow","Action":["iam:DeleteAccessKey","iam:RemoveUserFromGroup","iam:ListAccessKeys","iam:ListGroupsForUser","iam:DeleteUser","iam:GetUser"],"Resource":["arn:aws:iam::*:user/spinup/testOrg/*","arn:aws:iam::*:group/spinup/testOrg/SpinupECRAdminGroup-testOrg"]}]}`,
 		},
 	}
 	for _, tt := range tests {
@@ -122,7 +122,7 @@ func Test_server_repositoryUserUpdatePolicy(t *testing.T) {
 			fields: fields{
 				org: "testOrg",
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Action":["iam:UntagUser","iam:DeleteAccessKey","iam:RemoveUserFromGroup","iam:TagUser","iam:CreateAccessKey","iam:ListAccessKeys"],"Effect":"Allow","Resource":["arn:aws:iam::*:user/spinup/testOrg/*","arn:aws:iam::*:group/spinup/testOrg/SpinupECRAdminGroup-testOrg"],"Sid":"UpdateRepositoryUser"}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"UpdateRepositoryUser","Effect":"Allow","Action":["iam:UntagUser","iam:DeleteAccessKey","iam:RemoveUserFromGroup","iam:TagUser","iam:CreateAccessKey","iam:ListAccessKeys"],"Resource":["arn:aws:iam::*:user/spinup/testOrg/*","arn:aws:iam::*:group/spinup/testOrg/SpinupECRAdminGroup-testOrg"]}]}`,
 		},
 	}
 	for _, tt := range tests {
@@ -157,21 +157,21 @@ func Test_repositoryPolicy(t *testing.T) {
 			args: args{
 				groups: nil,
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}},"Effect":"Allow","Principal":"*","Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"AllowPullImagesFromSpaceAndOrg","Effect":"Allow","Principal":{"AWS":["*"]},"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":["${aws:ResourceTag/spinup:org}"],"aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}}}]}`,
 		},
 		{
 			name: "empty list",
 			args: args{
 				groups: []string{},
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}},"Effect":"Allow","Principal":"*","Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"AllowPullImagesFromSpaceAndOrg","Effect":"Allow","Principal":{"AWS":["*"]},"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":["${aws:ResourceTag/spinup:org}"],"aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}}}]}`,
 		},
 		{
 			name: "multiple groups",
 			args: args{
 				groups: []string{"foo", "bar", "baz"},
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}},"Effect":"Allow","Principal":"*","Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"AllowPullImagesFromSpaceAndOrg","Effect":"Allow","Principal":{"AWS":["*"]},"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":["${aws:ResourceTag/spinup:org}"],"aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}}}]}`,
 		},
 	}
 	for _, tt := range tests {
@@ -201,7 +201,7 @@ func Test_repositoryGroupsFromPolicy(t *testing.T) {
 		{
 			name: "nil",
 			args: args{
-				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}},"Effect":"Allow","Principal":"*","Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
+				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}},"Effect":"Allow","Principal":{"AWS":"*"},"Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
 			},
 			want: []string{},
 		},
@@ -215,42 +215,28 @@ func Test_repositoryGroupsFromPolicy(t *testing.T) {
 		{
 			name: "empty list",
 			args: args{
-				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}},"Effect":"Allow","Principal":"*","Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
-			},
-			want: []string{},
-		},
-		{
-			name: "non-slice in tag list",
-			args: args{
-				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":"somenotslice"}},"Effect":"Allow","Principal":"*","Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
-			},
-			want: []string{},
-		},
-		{
-			name: "non-strings slice in tag list",
-			args: args{
-				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":[1,2,3]}},"Effect":"Allow","Principal":"*","Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
+				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}},"Effect":"Allow","Principal":{"AWS":"*"},"Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
 			},
 			want: []string{},
 		},
 		{
 			name: "multiple groups",
 			args: args{
-				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}},"Effect":"Allow","Principal":"*","Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
+				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}},"Effect":"Allow","Principal":{"AWS":"*"},"Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
 			},
 			want: []string{"foo", "bar", "baz"},
 		},
 		{
 			name: "unexpected policy SID",
 			args: args{
-				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}},"Effect":"Allow","Principal":"*","Sid":"SomeOtherSID"}]}`,
+				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}},"Effect":"Allow","Principal":{"AWS":"*"},"Sid":"SomeOtherSID"}]}`,
 			},
 			want: []string{},
 		},
 		{
 			name: "missing StringEqualsIgnoreCase",
 			args: args{
-				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"OtherFooCondition":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}},"Effect":"Allow","Principal":"*","Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
+				policy: `{"Version":"2012-10-17","Statement":[{"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"OtherFooCondition":{"aws:PrincipalTag/spinup:org":"${aws:ResourceTag/spinup:org}","aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}},"Effect":"Allow","Principal":{"AWS":"*"},"Sid":"AllowPullImagesFromSpaceAndOrg"}]}`,
 			},
 			want: []string{},
 		},

@@ -56,10 +56,11 @@ func (s *server) repositoryUserCreatePolicy() (string, error) {
 					"iam:CreatePolicyVersion",
 					"iam:CreateUser",
 					"iam:GetGroup",
+					"iam:CreateGroup",
 					"iam:TagUser",
 				},
 				Resource: []string{
-					fmt.Sprintf("arn:aws:iam::*:group/spinup/%s/*", s.org),
+					"arn:aws:iam::*:group/*",
 					fmt.Sprintf("arn:aws:iam::*:policy/spinup/%s/*", s.org),
 					fmt.Sprintf("arn:aws:iam::*:user/spinup/%s/*", s.org),
 				},
@@ -164,10 +165,10 @@ func repositoryPolicy(groups []string) (string, error) {
 					"ecr:GetDownloadUrlForLayer",
 					"ecr:BatchGetImage",
 				},
-				Principal: "*",
+				Principal: iam.Principal{"AWS": iam.Value{"*"}},
 				Condition: iam.Condition{
 					"StringEqualsIgnoreCase": iam.ConditionStatement{
-						"aws:PrincipalTag/spinup:org":     "${aws:ResourceTag/spinup:org}",
+						"aws:PrincipalTag/spinup:org":     []string{"${aws:ResourceTag/spinup:org}"},
 						"aws:PrincipalTag/spinup:spaceid": groupConditions,
 					},
 				},
@@ -220,29 +221,14 @@ func repositoryGroupsFromPolicy(policy string) ([]string, error) {
 				continue
 			}
 
-			// should be a list of strings unless there are no
-			// additional groups added to the list
-			list, ok := v.([]interface{})
-			if !ok {
-				log.Debugf("resource policy condition value '%+v' is not a list, continuing", v)
-				continue
-			}
-
 			// collect the spaceid tags and add to the list of groups
-			for _, g := range list {
-				// values should all be strings
-				gv, ok := g.(string)
-				if !ok {
-					log.Warnf("tag value '%v' is not a string", g)
-					continue
-				}
-
+			for _, g := range v {
 				// ignore the "same space" group
-				if gv == "${aws:ResourceTag/spinup:spaceid}" {
+				if g == "${aws:ResourceTag/spinup:spaceid}" {
 					continue
 				}
 
-				groups = append(groups, gv)
+				groups = append(groups, g)
 			}
 		}
 	}
@@ -250,4 +236,29 @@ func repositoryGroupsFromPolicy(policy string) ([]string, error) {
 	log.Debugf("returning groups list: %v", groups)
 
 	return groups, nil
+}
+
+func (s *server) repositoryImageDeletePolicy(account, repoName string) (string, error) {
+	policy := &iam.PolicyDocument{
+		Version: "2012-10-17",
+		Statement: []iam.StatementEntry{
+			{
+				Sid:    "DeleteRepositoryImage",
+				Effect: "Allow",
+				Action: []string{
+					"ecr:BatchDeleteImage",
+				},
+				Resource: []string{
+					fmt.Sprintf("arn:aws:ecr:*:%s:repository/%s", account, repoName),
+				},
+			},
+		},
+	}
+
+	j, err := json.Marshal(policy)
+	if err != nil {
+		return "", err
+	}
+
+	return string(j), nil
 }

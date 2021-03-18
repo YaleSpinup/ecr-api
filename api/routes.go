@@ -38,6 +38,8 @@ func (s *server) routes() {
 
 	// Image specific endpoints
 	api.HandleFunc("/{account}/repositories/{group}/{name}/images", s.RepositoriesImageListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/images/{tag}", s.RepositoriesImageTagShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/repositories/{group}/{name}/images/{tag}", s.RepositoriesImageTagDeleteHandler).Methods(http.MethodDelete)
 
 	// User management for repositories
 	api.HandleFunc("/{account}/repositories/{group}/{name}/users", s.UsersListHandler).Methods(http.MethodGet)

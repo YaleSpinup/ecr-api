@@ -86,3 +86,81 @@ func TestECR_GetImages(t *testing.T) {
 		})
 	}
 }
+
+func TestECR_GetImageScanFindings(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx      context.Context
+		repoName string
+		tag      string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *ecr.ImageScanFindings
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			got, err := e.GetImageScanFindings(tt.args.ctx, tt.args.repoName, tt.args.tag)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECR.GetImageScanFindings() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECR.GetImageScanFindings() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestECR_DeleteImageTag(t *testing.T) {
+	type fields struct {
+		session         *session.Session
+		Service         ecriface.ECRAPI
+		DefaultKMSKeyId string
+	}
+	type args struct {
+		ctx      context.Context
+		repoName string
+		tag      string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *ecr.BatchDeleteImageOutput
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECR{
+				session:         tt.fields.session,
+				Service:         tt.fields.Service,
+				DefaultKMSKeyId: tt.fields.DefaultKMSKeyId,
+			}
+			got, err := e.DeleteImageTag(tt.args.ctx, tt.args.repoName, tt.args.tag)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECR.DeleteImageTag() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECR.DeleteImageTag() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
