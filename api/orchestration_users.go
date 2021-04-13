@@ -66,7 +66,7 @@ func (o *iamOrchestrator) listRepositoryUsers(ctx context.Context, group, name s
 		return nil, err
 	}
 
-	prefix := fmt.Sprintf("%s-%s-", group, name)
+	prefix := name + "-"
 
 	trimmed := make([]string, 0, len(users))
 	for _, u := range users {
@@ -79,10 +79,10 @@ func (o *iamOrchestrator) listRepositoryUsers(ctx context.Context, group, name s
 	return users, nil
 }
 
-// getRepositoryuser gets the details about a user
+// getRepositoryUser gets the details about a user
 func (o *iamOrchestrator) getRepositoryUser(ctx context.Context, group, name, user string) (*RepositoryUserResponse, error) {
 	path := fmt.Sprintf("/spinup/%s/%s/%s/", o.org, group, name)
-	userName := fmt.Sprintf("%s-%s-%s", group, name, user)
+	userName := fmt.Sprintf("%s-%s", name, user)
 
 	iamUser, err := o.client.GetUserWithPath(ctx, path, userName)
 	if err != nil {
@@ -105,7 +105,7 @@ func (o *iamOrchestrator) getRepositoryUser(ctx context.Context, group, name, us
 // repositoryUserDelete orchestrates removing a user from all groups and deleting the user
 func (o *iamOrchestrator) repositoryUserDelete(ctx context.Context, name, group, user string) error {
 	path := fmt.Sprintf("/spinup/%s/%s/%s/", o.org, group, name)
-	userName := fmt.Sprintf("%s-%s-%s", group, name, user)
+	userName := fmt.Sprintf("%s-%s", name, user)
 
 	if _, err := o.client.GetUserWithPath(ctx, path, userName); err != nil {
 		return err
@@ -264,7 +264,7 @@ func (o *iamOrchestrator) repositoryUserCreate(ctx context.Context, name, group,
 	log.Infof("creating repository %s user %s in group %s in iam group %s", name, req.UserName, group, groupName)
 
 	path := fmt.Sprintf("/spinup/%s/%s/%s/", o.org, group, name)
-	userName := fmt.Sprintf("%s-%s-%s", group, name, req.UserName)
+	userName := fmt.Sprintf("%s-%s", name, req.UserName)
 	repository := fmt.Sprintf("%s/%s", group, name)
 
 	req.Tags = normalizeUserTags(o.org, group, repository, userName, req.Tags)
@@ -291,19 +291,19 @@ func (o *iamOrchestrator) repositoryUserCreate(ctx context.Context, name, group,
 	return repositoryUserResponseFromIAM(o.org, user, nil, []string{groupName}), nil
 }
 
-func (o *iamOrchestrator) repositoryUserUpdate(ctx context.Context, name, group, userName string, req *RepositoryUserUpdateRequest) (*RepositoryUserResponse, error) {
-	log.Infof("updating repository %s user %s in group %s", name, userName, group)
+func (o *iamOrchestrator) repositoryUserUpdate(ctx context.Context, name, group, uname string, req *RepositoryUserUpdateRequest) (*RepositoryUserResponse, error) {
+	log.Infof("updating repository %s user %s in group %s", name, uname, group)
 
-	uname := fmt.Sprintf("%s-%s-%s", group, name, userName)
+	userName := fmt.Sprintf("%s-%s", name, uname)
 	repository := fmt.Sprintf("%s/%s", group, name)
 
 	response := &RepositoryUserResponse{
-		UserName: userName,
+		UserName: uname,
 	}
 
 	if req.Tags != nil {
-		req.Tags = normalizeUserTags(o.org, group, repository, uname, req.Tags)
-		if err := o.client.TagUser(ctx, uname, toIAMTags(req.Tags)); err != nil {
+		req.Tags = normalizeUserTags(o.org, group, repository, userName, req.Tags)
+		if err := o.client.TagUser(ctx, userName, toIAMTags(req.Tags)); err != nil {
 			return nil, err
 		}
 		response.Tags = req.Tags
@@ -311,12 +311,12 @@ func (o *iamOrchestrator) repositoryUserUpdate(ctx context.Context, name, group,
 
 	if req.ResetKey {
 		// get a list of users access keys
-		keys, err := o.client.ListAccessKeys(ctx, uname)
+		keys, err := o.client.ListAccessKeys(ctx, userName)
 		if err != nil {
 			return nil, err
 		}
 
-		newKeyOut, err := o.client.CreateAccessKey(ctx, uname)
+		newKeyOut, err := o.client.CreateAccessKey(ctx, userName)
 		if err != nil {
 			return nil, err
 		}
@@ -325,7 +325,7 @@ func (o *iamOrchestrator) repositoryUserUpdate(ctx context.Context, name, group,
 		deletedKeyIds := make([]string, 0, len(keys))
 		// delete the old access keys
 		for _, k := range keys {
-			err = o.client.DeleteAccessKey(ctx, uname, aws.StringValue(k.AccessKeyId))
+			err = o.client.DeleteAccessKey(ctx, userName, aws.StringValue(k.AccessKeyId))
 			if err != nil {
 				return response, err
 			}

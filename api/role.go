@@ -15,7 +15,7 @@ import (
 // assumeRole assumes the passed role arn.  if an externalId is set in the account to be accessed, it can be passed with the request.  inline
 // policy can be passed to limit the access for the session.  policy Arns can also be passed to limit access for the session.
 func (s *server) assumeRole(ctx context.Context, externalId, roleArn, inlinePolicy string, policyArns ...string) (*session.Session, error) {
-	log.Infof("assuming role %s", roleArn)
+	log.Infof("server assuming role %s", roleArn)
 
 	stsService := stsSvc.New(stsSvc.WithSession(s.session.Session))
 
@@ -50,8 +50,6 @@ func (s *server) assumeRole(ctx context.Context, externalId, roleArn, inlinePoli
 		}
 		input.SetPolicyArns(arns)
 	}
-
-	log.Debugf("assuming role %s with input %+v", roleArn, input)
 
 	out, err := stsService.AssumeRole(ctx, &input)
 	if err != nil {

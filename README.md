@@ -422,7 +422,9 @@ DELETE `/v1/ecr/{account}/repositories/{group}/{id}/images/{tag}`
 Repository users are created in the same account as the repository.  An account is "bootstrapped" by
 the create action if its not already prepared to contain repository users.  This bootstrapping creates
 a shared role and group for admin users.  The role grants a user access to a repository based on the tags
-`spinup:org`, `spinup:spaceid` and `ResourceName` (the repository name).
+`spinup:org`, `spinup:spaceid` and `ResourceName` (the repository name).  Usernames are a combination
+of the reponame and the username (reponame-username) to aid in uniqueness.  That combination must be
+unique within the AWS account.
 
 #### List all users for a repository
 

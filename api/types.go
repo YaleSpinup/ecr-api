@@ -135,7 +135,7 @@ func repositoryUserResponseFromIAM(org string, u *iam.User, keys []*iam.AccessKe
 	path := strings.Split(aws.StringValue(u.Path), "/")
 
 	if len(path) > 2 {
-		prefix := fmt.Sprintf("%s-%s-", path[len(path)-3], path[len(path)-2])
+		prefix := fmt.Sprintf("%s-", path[len(path)-2])
 
 		log.Debugf("trimming prefix '%s' from username %s", prefix, userName)
 
@@ -185,7 +185,8 @@ func normalizeTags(org, group, name string, tags []*Tag) []*Tag {
 			Value: group,
 		})
 
-	log.Debugf("returning normalized tags: %+v", normalizedTags)
+	log.Debugf("returning normalized tags: %s", awsutil.Prettify(normalizedTags))
+
 	return normalizedTags
 }
 
@@ -219,7 +220,8 @@ func normalizeUserTags(org, group, resource, name string, tags []*Tag) []*Tag {
 			Value: group,
 		})
 
-	log.Debugf("returning normalized tags: %+v", normalizedTags)
+	log.Debugf("returning normalized tags: %s", awsutil.Prettify(normalizedTags))
+
 	return normalizedTags
 }
 
