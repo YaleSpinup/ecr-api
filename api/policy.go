@@ -84,6 +84,48 @@ func (s *server) repositoryUserCreatePolicy() (string, error) {
 	return string(j), nil
 }
 
+func (s *server) repositoryDeletePolicy(org string) (string, error) {
+	policy := &iam.PolicyDocument{
+		Version: "2012-10-17",
+		Statement: []iam.StatementEntry{
+			{
+				Sid:    "DeleteRepositoryUser",
+				Effect: "Allow",
+				Action: []string{
+					"iam:DeleteAccessKey",
+					"iam:RemoveUserFromGroup",
+					"iam:ListAccessKeys",
+					"iam:ListGroupsForUser",
+					"iam:DeleteUser",
+					"iam:GetUser",
+					"iam:ListUsers",
+				},
+				Resource: []string{
+					fmt.Sprintf("arn:aws:iam::*:user/spinup/%s/*", s.org),
+					fmt.Sprintf("arn:aws:iam::*:group/spinup/%s/SpinupECRAdminGroup-%s", s.org, s.org),
+				},
+			},
+			{
+				Effect:   "Allow",
+				Action:   []string{"*"},
+				Resource: []string{"*"},
+				Condition: iam.Condition{
+					"StringEquals": iam.ConditionStatement{
+						"aws:ResourceTag/spinup:org": []string{org},
+					},
+				},
+			},
+		},
+	}
+
+	j, err := json.Marshal(policy)
+	if err != nil {
+		return "", err
+	}
+
+	return string(j), nil
+}
+
 func (s *server) repositoryUserDeletePolicy() (string, error) {
 	policy := &iam.PolicyDocument{
 		Version: "2012-10-17",

@@ -254,3 +254,42 @@ func Test_repositoryGroupsFromPolicy(t *testing.T) {
 		})
 	}
 }
+
+func Test_server_repositoryDeletePolicy(t *testing.T) {
+	type fields struct {
+		org string
+	}
+	type args struct {
+		org string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "test org",
+			fields: fields{
+				org: "testOrg",
+			},
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"DeleteRepositoryUser","Effect":"Allow","Action":["iam:DeleteAccessKey","iam:RemoveUserFromGroup","iam:ListAccessKeys","iam:ListGroupsForUser","iam:DeleteUser","iam:GetUser","iam:ListUsers"],"Resource":["arn:aws:iam::*:user/spinup/testOrg/*","arn:aws:iam::*:group/spinup/testOrg/SpinupECRAdminGroup-testOrg"]},{"Effect":"Allow","Action":["*"],"Resource":["*"],"Condition":{"StringEquals":{"aws:ResourceTag/spinup:org":[""]}}}]}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &server{
+				org: tt.fields.org,
+			}
+			got, err := s.repositoryDeletePolicy(tt.args.org)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("server.repositoryDeletePolicy() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("server.repositoryDeletePolicy() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
