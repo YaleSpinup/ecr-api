@@ -8,6 +8,7 @@ import (
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecr-api/ecr"
+	"github.com/YaleSpinup/ecr-api/iam"
 	"github.com/YaleSpinup/ecr-api/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -258,11 +259,17 @@ func (s *server) RepositoriesDeleteHandler(w http.ResponseWriter, r *http.Reques
 
 	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", account, s.session.RoleName)
 
+	policy, err := s.repositoryDeletePolicy(s.org)
+	if err != nil {
+		handleError(w, apierror.New(apierror.ErrInternalError, "failed to generate policy", err))
+		return
+	}
+
 	session, err := s.assumeRole(
 		r.Context(),
 		s.session.ExternalID,
 		role,
-		s.orgPolicy,
+		policy,
 		"arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess",
 	)
 	if err != nil {
@@ -281,7 +288,23 @@ func (s *server) RepositoriesDeleteHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	j, err := json.Marshal(resp)
+	iamOrch := newIamOrchestrator(
+		iam.New(iam.WithSession(session.Session)),
+		s.org,
+	)
+
+	users, err := iamOrch.repositoryUserDeleteAll(r.Context(), name, group)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	response := struct {
+		RepositoryResponse
+		Users []string
+	}{*resp, users}
+
+	j, err := json.Marshal(response)
 	if err != nil {
 		handleError(w, errors.Wrap(err, "unable to marshal response from the ecr service"))
 		return
