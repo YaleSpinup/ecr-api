@@ -140,6 +140,24 @@ func (o *iamOrchestrator) repositoryUserDelete(ctx context.Context, name, group,
 	return nil
 }
 
+// repositoryUserDeleteAll deletes all users for a repository
+func (o *iamOrchestrator) repositoryUserDeleteAll(ctx context.Context, name, group string) ([]string, error) {
+
+	// list all users for the repository
+	users, err := o.listRepositoryUsers(ctx, group, name)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, u := range users {
+		if err := o.repositoryUserDelete(ctx, name, group, u); err != nil {
+			log.Errorf("failed to delete repository %s user %s: %s", name, u, err)
+		}
+	}
+
+	return users, nil
+}
+
 // prepareAccount sets up the account for user management by creating the ECR admin policy and group
 func (o *iamOrchestrator) prepareAccount(ctx context.Context) (string, error) {
 	log.Info("preparing account for user management")
