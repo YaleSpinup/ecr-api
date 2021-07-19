@@ -83,7 +83,7 @@ func (o *ecrOrchestrator) repositoryCreate(ctx context.Context, account, group s
 		return nil, err
 	}
 
-	policy, err := repositoryPolicy(req.Groups)
+	policy, err := repositoryPolicy(account, req.Groups)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func (o *ecrOrchestrator) repositoryUpdate(ctx context.Context, account, group, 
 	}
 
 	if req.Groups != nil {
-		policy, err := repositoryPolicy(req.Groups)
+		policy, err := repositoryPolicy(account, req.Groups)
 		if err != nil {
 			return nil, err
 		}

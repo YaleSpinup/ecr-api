@@ -144,7 +144,8 @@ func Test_server_repositoryUserUpdatePolicy(t *testing.T) {
 
 func Test_repositoryPolicy(t *testing.T) {
 	type args struct {
-		groups []string
+		account string
+		groups  []string
 	}
 	tests := []struct {
 		name    string
@@ -155,28 +156,31 @@ func Test_repositoryPolicy(t *testing.T) {
 		{
 			name: "nil",
 			args: args{
-				groups: nil,
+				account: "0123456789",
+				groups:  nil,
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Sid":"AllowPullImagesFromSpaceAndOrg","Effect":"Allow","Principal":{"AWS":["*"]},"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":["${aws:ResourceTag/spinup:org}"],"aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}}}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"AllowPullImagesFromSpaceAndOrg","Effect":"Allow","Principal":{"AWS":["arn:aws:iam::0123456789:root"]},"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":["${aws:ResourceTag/spinup:org}"],"aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}}}]}`,
 		},
 		{
 			name: "empty list",
 			args: args{
-				groups: []string{},
+				account: "0123456789",
+				groups:  []string{},
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Sid":"AllowPullImagesFromSpaceAndOrg","Effect":"Allow","Principal":{"AWS":["*"]},"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":["${aws:ResourceTag/spinup:org}"],"aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}}}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"AllowPullImagesFromSpaceAndOrg","Effect":"Allow","Principal":{"AWS":["arn:aws:iam::0123456789:root"]},"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":["${aws:ResourceTag/spinup:org}"],"aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}"]}}}]}`,
 		},
 		{
 			name: "multiple groups",
 			args: args{
-				groups: []string{"foo", "bar", "baz"},
+				account: "0123456789",
+				groups:  []string{"foo", "bar", "baz"},
 			},
-			want: `{"Version":"2012-10-17","Statement":[{"Sid":"AllowPullImagesFromSpaceAndOrg","Effect":"Allow","Principal":{"AWS":["*"]},"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":["${aws:ResourceTag/spinup:org}"],"aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}}}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Sid":"AllowPullImagesFromSpaceAndOrg","Effect":"Allow","Principal":{"AWS":["arn:aws:iam::0123456789:root"]},"Action":["ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Condition":{"StringEqualsIgnoreCase":{"aws:PrincipalTag/spinup:org":["${aws:ResourceTag/spinup:org}"],"aws:PrincipalTag/spinup:spaceid":["${aws:ResourceTag/spinup:spaceid}","foo","bar","baz"]}}}]}`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := repositoryPolicy(tt.args.groups)
+			got, err := repositoryPolicy(tt.args.account, tt.args.groups)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("repositoryPolicy() error = %v, wantErr %v", err, tt.wantErr)
 				return
