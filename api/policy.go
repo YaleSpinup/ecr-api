@@ -190,8 +190,9 @@ func (s *server) repositoryUserUpdatePolicy() (string, error) {
 
 // repositoryPolicy accepts a list of groups and returns the policy to allow ecr access
 // for resources in the same org/group as well as any passed groups
-func repositoryPolicy(groups []string) (string, error) {
+func repositoryPolicy(account string, groups []string) (string, error) {
 	groupConditions := append([]string{"${aws:ResourceTag/spinup:spaceid}"}, groups...)
+	principal := fmt.Sprintf("arn:aws:iam::%s:root", account)
 
 	log.Debugf("generating policy text from groups %+v", groups)
 
@@ -207,7 +208,7 @@ func repositoryPolicy(groups []string) (string, error) {
 					"ecr:GetDownloadUrlForLayer",
 					"ecr:BatchGetImage",
 				},
-				Principal: iam.Principal{"AWS": iam.Value{"*"}},
+				Principal: iam.Principal{"AWS": iam.Value{principal}},
 				Condition: iam.Condition{
 					"StringEqualsIgnoreCase": iam.ConditionStatement{
 						"aws:PrincipalTag/spinup:org":     []string{"${aws:ResourceTag/spinup:org}"},
