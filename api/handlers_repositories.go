@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
-	aws_ecr "github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -316,8 +315,8 @@ func (s *server) RepositoriesDeleteHandler(w http.ResponseWriter, r *http.Reques
 	w.Write(j)
 }
 
-// ScanRepositoriesListHandler Scans all registries & returns
-func (s *server) ScanRepositoriesListHandler(w http.ResponseWriter, r *http.Request) {
+// ScanRepositoriesListHandler Scans all repositories
+func (s *server) ScanRepositoriesHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
@@ -328,8 +327,7 @@ func (s *server) ScanRepositoriesListHandler(w http.ResponseWriter, r *http.Requ
 		s.session.ExternalID,
 		role,
 		"",
-		"arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
-		"arn:aws:iam::aws:policy/ResourceGroupsandTagEditorReadOnlyAccess",
+		"arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess",
 	)
 	if err != nil {
 		msg := fmt.Sprintf("failed to assume role in account: %s", account)
@@ -337,105 +335,32 @@ func (s *server) ScanRepositoriesListHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var repos []string
-	if group, ok := vars["group"]; ok {
-		service := resourcegroupstaggingapi.New(
-			resourcegroupstaggingapi.WithSession(session.Session),
-		)
+	service := ecr.New(
+		ecr.WithSession(session.Session),
+	)
 
-		// build up tag filters starting with the org
-		tagFilters := []*resourcegroupstaggingapi.TagFilter{
-			{
-				Key:   "spinup:org",
-				Value: []string{s.org},
-			},
-			{
-				Key:   "spinup:spaceid",
-				Value: []string{group},
-			},
-		}
+	repositories, err := service.ListRepositories(r.Context())
+	if err != nil {
+		handleError(w, err)
+		return
+	}
 
-		out, err := service.GetResourcesWithTags(r.Context(), []string{"ecr"}, tagFilters)
-		if err != nil {
-			handleError(w, errors.Wrap(err, "failed to create repository"))
-			return
-		}
-
-		log.Debugf("got output from resourcegroups tagging api %s", awsutil.Prettify(out))
-
-		repos = make([]string, 0, len(out))
-		for _, repo := range out {
-			a, err := arn.Parse(aws.StringValue(repo.ResourceARN))
-			if err != nil {
-				msg := fmt.Sprintf("failed to parse ARN %s: %s", repo, err)
-				handleError(w, errors.Wrap(err, msg))
-				return
-			}
-
-			prefix := fmt.Sprintf("repository/%s/", group)
-			rid := strings.TrimPrefix(a.Resource, prefix)
-			repos = append(repos, rid)
-		}
-	} else {
-		service := ecr.New(
-			ecr.WithSession(session.Session),
-		)
-
-		var err error
-		repos, err = service.ListRepositories(r.Context())
+	for _, repository := range repositories {
+		images, err := service.ListImages(r.Context(), repository)
 		if err != nil {
 			handleError(w, err)
 			return
 		}
+		for _, image := range images {
+			err = service.ScanImage(r.Context(), image, repository)
+			if err != nil {
+				handleError(w, err)
+				return
+			}
+		}
+
 	}
 
-	// Loop through the repositories and scan each one.
-    for _, repo := range repos {
-        // Create an ECR scan request for the repository.
-        scanInput := &aws_ecr.StartImageScanInput{
-            RepositoryName: aws.String(repo),
-        }
-
-        // Start the scan and get the scan ID.
-        _, err := service.StartImageScan(scanInput)
-        if err != nil {
-           msg := fmt.Sprintf("Error starting scan for repository %s: %s\n", repo, err)
-		   handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
-           return
-        }
-
-        // Get the scan results.
-        resultsInput := &aws_ecr.DescribeImageScanFindingsInput{
-            RepositoryName: aws.String(repo),
-            ImageId: &aws_ecr.ImageIdentifier{
-                ImageTag: aws.String("latest"),
-            },
-            MaxResults: aws.Int64(100),
-        }
-
-        // Loop until all results have been retrieved.
-        for {
-            resultsOutput, err := service.DescribeImageScanFindings(resultsInput)
-            if err != nil {
-                msg := fmt.Sprintf("Error describing scan results for repository %s: %s\n", repo, err)
-				handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
-                return
-            }
-
-            // Print the findings.
-            for _, finding := range resultsOutput.ImageScanFindings.Findings {
-                w.Write("Repository: %s, Severity: %s, Description: %s\n",
-                   repo, *finding.Severity, *finding.Description)
-            }
-
-            // Check if there are more results to retrieve.
-            if resultsOutput.NextToken == nil {
-                break
-            }
-
-            // Set the next token for the next request.
-            resultsInput.NextToken = resultsOutput.NextToken
-        }
-
-}
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("scan initiated"))
 }

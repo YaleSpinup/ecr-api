@@ -218,3 +218,14 @@ func (e *ECR) GetRepositoryPolicy(ctx context.Context, repoName string) (string,
 
 	return aws.StringValue(out.PolicyText), nil
 }
+
+func (e *ECR) ScanImage(ctx context.Context, imageDetails *ecr.ImageIdentifier, repository string) error {
+	_, err := e.Service.StartImageScanWithContext(ctx, &ecr.StartImageScanInput{
+		ImageId:        imageDetails,
+		RepositoryName: &repository,
+	})
+	if err != nil {
+		return ErrCode("failed to start repository image scan", err)
+	}
+	return nil
+}
