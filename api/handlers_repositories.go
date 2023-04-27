@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecr-api/ecr"
@@ -351,11 +352,19 @@ func (s *server) ScanRepositoriesHandler(w http.ResponseWriter, r *http.Request)
 			handleError(w, err)
 			return
 		}
+
 		for _, image := range images {
-			err = service.ScanImage(r.Context(), image, repository)
+			imageScanFindings, err := service.GetImageScanFindingsByImageDigest(r.Context(), repository, *image.ImageDigest)
 			if err != nil {
 				handleError(w, err)
 				return
+			}
+			if imageScanFindings != nil && time.Now().UTC().Sub(*imageScanFindings.ImageScanCompletedAt) > 24*time.Hour {
+				err = service.ScanImage(r.Context(), image, repository)
+				if err != nil {
+					handleError(w, err)
+					return
+				}
 			}
 		}
 
