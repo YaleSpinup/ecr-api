@@ -345,21 +345,21 @@ func (s *server) ScanRepositoriesHandler(w http.ResponseWriter, r *http.Request)
 		handleError(w, err)
 		return
 	}
+	scannedImageIds := make(map[string][]string)
+	scanCount := 0
 
 	for _, repository := range repositories {
-		images, err := service.ListImages(r.Context(), repository)
+
+		images, err := service.GetImages(r.Context(), repository)
 		if err != nil {
 			handleError(w, err)
 			return
 		}
 
 		for _, image := range images {
-			imageScanFindings, err := service.GetImageScanFindingsByImageDigest(r.Context(), repository, *image.ImageDigest)
-			if err != nil {
-				handleError(w, err)
-				return
-			}
-			if imageScanFindings != nil && time.Now().UTC().Sub(*imageScanFindings.ImageScanCompletedAt) > 24*time.Hour {
+			if image.ImageScanFindingsSummary != nil && time.Now().UTC().Sub(*image.ImageScanFindingsSummary.ImageScanCompletedAt) > 24*time.Hour {
+				scanCount++
+				scannedImageIds[repository] = append(scannedImageIds[repository], aws.StringValue(image.ImageDigest))
 				err = service.ScanImage(r.Context(), image, repository)
 				if err != nil {
 					handleError(w, err)
@@ -369,7 +369,17 @@ func (s *server) ScanRepositoriesHandler(w http.ResponseWriter, r *http.Request)
 		}
 
 	}
+	message := "All images already scanned in the past 24 hours"
+	if scanCount != 0 {
+		message = fmt.Sprintf(
+			"Scan initiated for %d images", scanCount,
+		)
+	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("scan initiated"))
+	data, _ := json.Marshal(map[string]any{
+		"message":      message,
+		"repositories": scannedImageIds,
+	})
+	w.Write(data)
 }
