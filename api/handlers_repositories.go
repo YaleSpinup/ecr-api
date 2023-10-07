@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecr-api/ecr"
@@ -13,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
+	awsecr "github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -313,4 +316,165 @@ func (s *server) RepositoriesDeleteHandler(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
+}
+
+// ScanRepositoriesListHandler Scans all repositories
+func (s *server) ScanRepositoriesHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", account, s.session.RoleName)
+
+	session, err := s.assumeRole(
+		r.Context(),
+		s.session.ExternalID,
+		role,
+		"",
+		"arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess",
+	)
+	if err != nil {
+		msg := fmt.Sprintf("failed to assume role in account: %s", account)
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
+		return
+	}
+
+	service := ecr.New(
+		ecr.WithSession(session.Session),
+	)
+
+	repositories, err := service.ListRepositories(r.Context())
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	scannedImageIds := make(map[string][]string)
+	scanCount := 0
+
+	for _, repository := range repositories {
+
+		images, err := service.GetImages(r.Context(), repository)
+		if err != nil {
+			handleError(w, err)
+			return
+		}
+
+		if len(images) != 0 {
+			latestImage := images[0]
+			for _, image := range images {
+				if image.ImagePushedAt.After(*latestImage.ImagePushedAt) {
+					latestImage = image
+				}
+			}
+
+			if latestImage.ImageScanFindingsSummary != nil && time.Now().UTC().Sub(*latestImage.ImageScanFindingsSummary.ImageScanCompletedAt) > 24*time.Hour {
+				scanCount++
+				scannedImageIds[repository] = append(scannedImageIds[repository], aws.StringValue(latestImage.ImageDigest))
+				err = service.ScanImage(r.Context(), latestImage, repository)
+				if err != nil {
+					handleError(w, err)
+					return
+				}
+			}
+		}
+
+	}
+	message := "All images already scanned in the past 24 hours"
+	if scanCount != 0 {
+		message = fmt.Sprintf(
+			"Scan initiated for %d images", scanCount,
+		)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	data, _ := json.Marshal(map[string]any{
+		"message":      message,
+		"repositories": scannedImageIds,
+	})
+	w.Write(data)
+}
+
+// ScanFindings returns scan results for latest image in all the repositories
+func (s *server) ScanFindings(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	role := fmt.Sprintf("arn:aws:iam::%s:role/%s", account, s.session.RoleName)
+
+	session, err := s.assumeRole(
+		r.Context(),
+		s.session.ExternalID,
+		role,
+		"",
+		"arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess",
+	)
+	if err != nil {
+		msg := fmt.Sprintf("failed to assume role in account: %s", account)
+		handleError(w, apierror.New(apierror.ErrForbidden, msg, nil))
+		return
+	}
+
+	service := ecr.New(
+		ecr.WithSession(session.Session),
+	)
+
+	repositories, err := service.ListRepositories(r.Context())
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var scanResults []*awsecr.DescribeImageScanFindingsOutput
+	errChannel := make(chan error, len(repositories))
+	for _, repository := range repositories {
+		wg.Add(1)
+
+		go func(repo string) {
+			defer wg.Done()
+			images, err := service.GetImages(r.Context(), repo)
+			if err != nil {
+				errChannel <- err
+				return
+			}
+
+			if len(images) != 0 {
+				latestImage := images[0]
+				for _, image := range images {
+					if image.ImagePushedAt.After(*latestImage.ImagePushedAt) {
+						latestImage = image
+					}
+				}
+
+				scanFindings, err := service.GetImageScanFindingsByImageDigest(r.Context(), repo, *latestImage.ImageDigest)
+				if err != nil {
+					errChannel <- err
+					return
+				}
+				mu.Lock()
+				scanResults = append(scanResults, scanFindings)
+				mu.Unlock()
+			}
+		}(repository)
+	}
+
+	wg.Wait()
+	close(errChannel)
+
+	for err := range errChannel {
+		if err != nil {
+			handleError(w, errors.Wrap(err, "unable to marshal response from the ecr service"))
+			return
+		}
+	}
+
+	data, err := json.Marshal(scanResults)
+	if err != nil {
+		handleError(w, errors.Wrap(err, "unable to marshal response from the ecr service"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }

@@ -52,6 +52,7 @@ func (e *ECR) GetImages(ctx context.Context, repoName string, imageIds ...*ecr.I
 	return out.ImageDetails, nil
 }
 
+
 // GetImageScanFindings gets the scan findings for an image tag
 func (e *ECR) GetImageScanFindings(ctx context.Context, repoName, tag string) (*ecr.ImageScanFindings, error) {
 	if repoName == "" || tag == "" {
@@ -99,6 +100,31 @@ func (e *ECR) DeleteImageTag(ctx context.Context, repoName, tag string) (*ecr.Ba
 	}
 
 	log.Debugf("got output from deleting image tag %+v", out)
+
+	return out, nil
+}
+
+// GetImageScanFindingsByImageDigest gets the scan findings for an image digest
+func (e *ECR) GetImageScanFindingsByImageDigest(ctx context.Context, repoName, imageDigest string) (*ecr.DescribeImageScanFindingsOutput, error) {
+	if imageDigest == "" || repoName == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("getting image scan findings for image ID %s in repository: %s", imageDigest, repoName)
+
+	out, err := e.Service.DescribeImageScanFindingsWithContext(ctx, &ecr.DescribeImageScanFindingsInput{
+		ImageId: &ecr.ImageIdentifier{
+			ImageDigest: aws.String(imageDigest),
+		},
+		MaxResults:     aws.Int64(1000),
+		RepositoryName: aws.String(repoName),
+	})
+
+	if err != nil {
+		return nil, ErrCode("failed to get image scan findings", err)
+	}
+
+	log.Debugf("got output from image scan findings %+v", out)
 
 	return out, nil
 }
