@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.45.24
 	github.com/google/uuid v1.3.1
 	github.com/gorilla/handlers v1.5.1
-	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/mux v1.8.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
