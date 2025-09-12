@@ -89,6 +89,27 @@ func (s *server) RepositoriesImageTagShowHandler(w http.ResponseWriter, r *http.
 
 	findings, err := service.GetImageScanFindings(r.Context(), repository, tag)
 	if err != nil {
+		// Check if the error is because scan findings don't exist yet
+		if aerr, ok := err.(*apierror.Error); ok && aerr.Code == apierror.ErrNotFound {
+			// Return empty scan findings with a status indicating no scan available
+			emptyScanResponse := map[string]interface{}{
+				"imageScanStatus": map[string]string{
+					"status":      "NO_SCAN_AVAILABLE",
+					"description": "Image scan findings are not available for this image",
+				},
+				"findingSeverityCounts": map[string]int{},
+				"findings":              []interface{}{},
+			}
+			j, err := json.Marshal(emptyScanResponse)
+			if err != nil {
+				handleError(w, errors.Wrap(err, "unable to marshal empty scan response"))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(j)
+			return
+		}
 		handleError(w, err)
 		return
 	}
