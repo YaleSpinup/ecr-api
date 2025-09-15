@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/YaleSpinup/apierror v0.1.5
-	github.com/aws/aws-sdk-go v1.45.24
+  github.com/aws/aws-sdk-go v1.49.16
 	github.com/google/uuid v1.5.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.1
@@ -28,3 +28,4 @@ require (
 	golang.org/x/sys v0.15.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 )
+
