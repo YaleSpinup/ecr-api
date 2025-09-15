@@ -57,7 +57,7 @@ func TestGetImageScanFindingsCompatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := &mockECRClient{
+			mockClient := &mockECRScanClient{
 				scanErr: tt.mockErr,
 			}
 
@@ -112,7 +112,7 @@ func TestGetImageScanFindingsByImageDigestCompatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := &mockECRClient{
+			mockClient := &mockECRScanClient{
 				scanErr: tt.mockErr,
 			}
 
@@ -138,13 +138,13 @@ func TestGetImageScanFindingsByImageDigestCompatibility(t *testing.T) {
 	}
 }
 
-// mockECRClient is a mock implementation of the ECR client
-type mockECRClient struct {
+// mockECRScanClient is a mock implementation of the ECR client for scan tests
+type mockECRScanClient struct {
 	ecriface.ECRAPI
 	scanErr error
 }
 
-func (m *mockECRClient) DescribeImageScanFindingsWithContext(ctx context.Context, input *ecr.DescribeImageScanFindingsInput, opts ...request.Option) (*ecr.DescribeImageScanFindingsOutput, error) {
+func (m *mockECRScanClient) DescribeImageScanFindingsWithContext(ctx context.Context, input *ecr.DescribeImageScanFindingsInput, opts ...request.Option) (*ecr.DescribeImageScanFindingsOutput, error) {
 	if m.scanErr != nil {
 		return nil, m.scanErr
 	}
