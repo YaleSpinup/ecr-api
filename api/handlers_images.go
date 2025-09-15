@@ -7,6 +7,7 @@ import (
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecr-api/ecr"
+	awsecr "github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 )
@@ -87,13 +88,53 @@ func (s *server) RepositoriesImageTagShowHandler(w http.ResponseWriter, r *http.
 		ecr.WithSession(session.Session),
 	)
 
-	findings, err := service.GetImageScanFindings(r.Context(), repository, tag)
+	// First, get the image details
+	imageId := &awsecr.ImageIdentifier{
+		ImageTag: &tag,
+	}
+	images, err := service.GetImages(r.Context(), repository, imageId)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	j, err := json.Marshal(findings)
+	if len(images) == 0 {
+		handleError(w, apierror.New(apierror.ErrNotFound, "image not found", nil))
+		return
+	}
+
+	// Get the first (and should be only) image
+	imageDetail := images[0]
+
+	// Create a response structure that includes image details
+	response := make(map[string]interface{})
+
+	// Add all image detail fields
+	response["ImageId"] = imageDetail.ImageId
+	response["RegistryId"] = imageDetail.RegistryId
+	response["RepositoryName"] = imageDetail.RepositoryName
+	response["ImageDigest"] = imageDetail.ImageDigest
+	response["ImageTags"] = imageDetail.ImageTags
+	response["ImageSizeInBytes"] = imageDetail.ImageSizeInBytes
+	response["ImagePushedAt"] = imageDetail.ImagePushedAt
+	response["ImageManifestMediaType"] = imageDetail.ImageManifestMediaType
+	response["ArtifactMediaType"] = imageDetail.ArtifactMediaType
+
+	// Copy scan status and findings if available
+	if imageDetail.ImageScanStatus != nil {
+		response["ImageScanStatus"] = imageDetail.ImageScanStatus
+	}
+	if imageDetail.ImageScanFindingsSummary != nil {
+		response["ImageScanFindingsSummary"] = imageDetail.ImageScanFindingsSummary
+	}
+
+	// Try to get detailed scan findings (but don't fail if not available)
+	findings, err := service.GetImageScanFindings(r.Context(), repository, tag)
+	if err == nil && findings != nil {
+		response["ImageScanFindings"] = findings
+	}
+
+	j, err := json.Marshal(response)
 	if err != nil {
 		handleError(w, errors.Wrap(err, "unable to marshal response from the ecr service"))
 		return
