@@ -7,6 +7,7 @@ import (
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecr-api/ecr"
+	awsecr "github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 )
@@ -87,13 +88,38 @@ func (s *server) RepositoriesImageTagShowHandler(w http.ResponseWriter, r *http.
 		ecr.WithSession(session.Session),
 	)
 
-	findings, err := service.GetImageScanFindings(r.Context(), repository, tag)
+	// First, get the image details
+	imageID := &awsecr.ImageIdentifier{ImageTag: &tag}
+	images, err := service.GetImages(r.Context(), repository, imageID)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	j, err := json.Marshal(findings)
+	// Create response structure
+	type ImageTagResponse struct {
+		ImageDetail   *awsecr.ImageDetail        `json:"imageDetail,omitempty"`
+		ScanFindings  *awsecr.ImageScanFindings  `json:"scanFindings,omitempty"`
+		ScanError     string                  `json:"scanError,omitempty"`
+	}
+
+	response := ImageTagResponse{}
+
+	// Add image detail if found
+	if len(images) > 0 {
+		response.ImageDetail = images[0]
+	}
+
+	// Try to get scan findings, but don't fail if they're not available
+	findings, err := service.GetImageScanFindings(r.Context(), repository, tag)
+	if err != nil {
+		// Log the error but don't fail the request
+		response.ScanError = fmt.Sprintf("Unable to retrieve scan findings: %v", err)
+	} else {
+		response.ScanFindings = findings
+	}
+
+	j, err := json.Marshal(response)
 	if err != nil {
 		handleError(w, errors.Wrap(err, "unable to marshal response from the ecr service"))
 		return
