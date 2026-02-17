@@ -17,16 +17,21 @@ func (e *ECR) ListImages(ctx context.Context, repoName string) ([]*ecr.ImageIden
 
 	log.Infof("listing images for repository %s", repoName)
 
-	out, err := e.Service.ListImagesWithContext(ctx, &ecr.ListImagesInput{
-		RepositoryName: aws.String(repoName),
-	})
-	if err != nil {
+	imageIds := []*ecr.ImageIdentifier{}
+	if err := e.Service.ListImagesPagesWithContext(ctx,
+		&ecr.ListImagesInput{
+			RepositoryName: aws.String(repoName),
+		},
+		func(page *ecr.ListImagesOutput, lastPage bool) bool {
+			imageIds = append(imageIds, page.ImageIds...)
+			return true
+		}); err != nil {
 		return nil, ErrCode("failed to list repository images", err)
 	}
 
-	log.Debugf("got output from listing repostiory images %+v", out)
+	log.Debugf("got output from listing repostiory images %+v", imageIds)
 
-	return out.ImageIds, nil
+	return imageIds, nil
 }
 
 // GetImages gets details about images in a repository
@@ -42,14 +47,18 @@ func (e *ECR) GetImages(ctx context.Context, repoName string, imageIds ...*ecr.I
 		input.SetImageIds(imageIds)
 	}
 
-	out, err := e.Service.DescribeImagesWithContext(ctx, input)
-	if err != nil {
+	images := []*ecr.ImageDetail{}
+	if err := e.Service.DescribeImagesPagesWithContext(ctx, input,
+		func(page *ecr.DescribeImagesOutput, lastPage bool) bool {
+			images = append(images, page.ImageDetails...)
+			return true
+		}); err != nil {
 		return nil, ErrCode("failed to get images", err)
 	}
 
-	log.Debugf("got output from images %+v", out)
+	log.Debugf("got output from images %+v", images)
 
-	return out.ImageDetails, nil
+	return images, nil
 }
 
 
